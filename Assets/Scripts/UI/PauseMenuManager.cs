@@ -46,6 +46,10 @@ namespace KayakSimulator.UI
 
         private void OnDestroy()
         {
+            if (resumeButton   != null) resumeButton.onClick.RemoveListener(OnResumeClicked);
+            if (settingsButton != null) settingsButton.onClick.RemoveListener(OnSettingsClicked);
+            if (mainMenuButton != null) mainMenuButton.onClick.RemoveListener(OnMainMenuClicked);
+
             if (GameManager.Instance != null)
                 GameManager.Instance.OnGameStateChanged -= HandleGameStateChanged;
         }

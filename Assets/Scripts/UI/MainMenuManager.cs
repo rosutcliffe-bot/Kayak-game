@@ -59,6 +59,17 @@ namespace KayakSimulator.UI
             if (mainPanel     != null) mainPanel.SetActive(true);
         }
 
+        private void OnDestroy()
+        {
+            if (startButton    != null) startButton.onClick.RemoveListener(OnStartClicked);
+            if (settingsButton != null) settingsButton.onClick.RemoveListener(OnSettingsClicked);
+            if (quitButton     != null) quitButton.onClick.RemoveListener(OnQuitClicked);
+            if (arcadeModeToggle     != null)
+                arcadeModeToggle.onValueChanged.RemoveListener(OnArcadeToggleChanged);
+            if (simulationModeToggle != null)
+                simulationModeToggle.onValueChanged.RemoveListener(OnSimToggleChanged);
+        }
+
         // ---------------------------------------------------------------
         // Button handlers
         // ---------------------------------------------------------------

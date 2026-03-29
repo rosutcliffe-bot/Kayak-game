@@ -120,11 +120,13 @@ namespace KayakSimulator.Water
 
         private void UpdateVertices()
         {
+            float localYOffset = transform.position.y;
+
             for (int i = 0; i < _baseVertices.Length; i++)
             {
                 Vector3 worldBase = transform.TransformPoint(_baseVertices[i]);
                 float   y = _waveSystem.GetWaveHeight(worldBase.x, worldBase.z);
-                _vertices[i] = new Vector3(_baseVertices[i].x, y, _baseVertices[i].z);
+                _vertices[i] = new Vector3(_baseVertices[i].x, y - localYOffset, _baseVertices[i].z);
             }
 
             _mesh.SetVertices(_vertices);

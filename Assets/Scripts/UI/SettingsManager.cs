@@ -73,6 +73,16 @@ namespace KayakSimulator.UI
                 fullscreenToggle.onValueChanged.AddListener(OnFullscreenChanged);
         }
 
+        private void OnDestroy()
+        {
+            if (masterVolumeSlider != null) masterVolumeSlider.onValueChanged.RemoveAllListeners();
+            if (musicVolumeSlider  != null) musicVolumeSlider.onValueChanged.RemoveAllListeners();
+            if (sfxVolumeSlider    != null) sfxVolumeSlider.onValueChanged.RemoveAllListeners();
+            if (sensitivitySlider  != null) sensitivitySlider.onValueChanged.RemoveAllListeners();
+            if (qualityDropdown    != null) qualityDropdown.onValueChanged.RemoveListener(OnQualityChanged);
+            if (fullscreenToggle   != null) fullscreenToggle.onValueChanged.RemoveListener(OnFullscreenChanged);
+        }
+
         // ---------------------------------------------------------------
         // Load / Save helpers
         // ---------------------------------------------------------------
