@@ -61,11 +61,29 @@ canvas{display:block}
 #tl{left:16px;width:100px;height:100px}
 #tr{right:16px;width:100px;height:100px}
 
+/* ── How to Play overlay ── */
+#howto{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(8,20,14,.92);backdrop-filter:blur(8px);z-index:110;text-align:left;padding:20px;overflow-y:auto}
+#howto-inner{max-width:560px;width:100%;padding:24px 28px;background:rgba(20,42,32,.85);border-radius:16px;border:1px solid rgba(126,200,167,.2)}
+#howto h2{font-size:1.6rem;color:#8ed8b3;margin-bottom:14px;text-align:center}
+#howto h3{font-size:1rem;color:#8ed8b3;margin:16px 0 8px;border-bottom:1px solid rgba(126,200,167,.2);padding-bottom:4px}
+#howto p{font-size:.88rem;color:#b0d0c8;line-height:1.65;margin-bottom:8px}
+#howto .key{display:inline-block;background:rgba(126,200,167,.18);border:1px solid rgba(126,200,167,.3);border-radius:5px;padding:1px 7px;font-family:monospace;font-size:.85rem;color:#8ed8b3;margin:0 2px}
+#howto table{width:100%;border-collapse:collapse;margin:6px 0 10px}
+#howto th{text-align:left;font-size:.78rem;color:#6a9a88;padding:4px 8px;border-bottom:1px solid rgba(126,200,167,.15)}
+#howto td{font-size:.85rem;color:#b0d0c8;padding:5px 8px;border-bottom:1px solid rgba(126,200,167,.08)}
+#howto td:first-child{color:#8ed8b3;font-weight:600;white-space:nowrap}
+#howto .tip{background:rgba(126,200,167,.08);border-left:3px solid rgba(126,200,167,.4);padding:8px 12px;border-radius:0 8px 8px 0;margin:8px 0;font-size:.84rem;color:#a0c8b8}
+#howto .tip b{color:#8ed8b3}
+#howto-close{margin-top:18px;display:block;width:100%;text-align:center}
+.btn-menu-row{display:flex;gap:12px;margin:4px 0}
+
 @media(max-width:600px){
   #menu h1{font-size:1.7rem}
   #menu .subtitle{font-size:.88rem}
   #speed-val{font-size:1.3rem}
   #heading-val{font-size:1.2rem}
+  #howto-inner{padding:16px 18px}
+  #howto h2{font-size:1.3rem}
 }
 </style>
 </head>
@@ -79,11 +97,51 @@ canvas{display:block}
     <label><input type="radio" name="mode" value="arcade" checked><span> Arcade</span></label>
     <label><input type="radio" name="mode" value="simulation"><span> Simulation</span></label>
   </div>
-  <button class="btn btn-primary" id="start-btn">Launch Downstream</button>
+  <div class="btn-menu-row">
+    <button class="btn btn-primary" id="start-btn">Launch Downstream</button>
+    <button class="btn btn-secondary" id="howto-btn">How to Play</button>
+  </div>
   <div class="controls-hint">
-    <b>Keyboard:</b> W = forward paddle &nbsp; A / D = paddle left/right &nbsp; S = back-paddle<br>
-    ← → = steer &nbsp; Q / E = lean &nbsp; Esc = pause &nbsp; C = camera<br>
-    <b>Mobile:</b> tap left / right zones to paddle
+    <b>Quick start:</b> Press <b>W</b> to paddle forward, <b>A</b> / <b>D</b> to steer. The river current carries you — dodge rocks!
+  </div>
+</div>
+
+<!-- How to Play -->
+<div id="howto">
+  <div id="howto-inner">
+    <h2>🛶 How to Play</h2>
+    <p>You're kayaking down a whitewater river! The current carries you downstream automatically — your job is to <b>steer around rocks</b>, <b>navigate rapids</b>, and <b>survive as far as possible</b>.</p>
+
+    <h3>🎯 Goal</h3>
+    <p>Travel as far downstream as you can. Avoid crashing into rocks and canyon walls. Use eddies (calm water behind rocks) to rest. Watch out for stoppers (hydraulics) that can trap you!</p>
+
+    <h3>⌨️ Keyboard Controls</h3>
+    <table>
+      <tr><th>Action</th><th>Keys</th></tr>
+      <tr><td>Paddle forward</td><td><span class="key">W</span></td></tr>
+      <tr><td>Paddle left</td><td><span class="key">A</span></td></tr>
+      <tr><td>Paddle right</td><td><span class="key">D</span></td></tr>
+      <tr><td>Back-paddle / brake</td><td><span class="key">S</span></td></tr>
+      <tr><td>Steer</td><td><span class="key">←</span> <span class="key">→</span></td></tr>
+      <tr><td>Lean</td><td><span class="key">Q</span> <span class="key">E</span></td></tr>
+      <tr><td>Switch camera</td><td><span class="key">C</span></td></tr>
+      <tr><td>Pause</td><td><span class="key">Esc</span></td></tr>
+    </table>
+
+    <h3>📱 Mobile / Touch</h3>
+    <p>Tap the <b>left circle</b> to paddle left, <b>right circle</b> to paddle right. Use the toolbar buttons for pause, mute, and fullscreen.</p>
+
+    <h3>🌊 River Features</h3>
+    <div class="tip"><b>Rapids ⚠</b> — Steeper sections with big waves and fast current. A warning flashes on screen. Paddle hard and steer carefully!</div>
+    <div class="tip"><b>Eddies</b> — Calm circular water behind large rocks. Paddle into them to slow down and rest.</div>
+    <div class="tip"><b>Stoppers</b> — Recirculating water at steep drops. They pull you back! Paddle forward hard (<span class="key">W</span>) to escape.</div>
+    <div class="tip"><b>Rocks</b> — Grey boulders in the river. Collisions slow you down and flash the screen red — steer around them!</div>
+
+    <h3>🕹️ Game Modes</h3>
+    <p><b>Arcade</b> — Intuitive controls. Press <span class="key">A</span> to turn left, <span class="key">D</span> to turn right.<br>
+    <b>Simulation</b> — Realistic. Left paddle stroke turns you right (like real kayaking).</p>
+
+    <button class="btn btn-primary" id="howto-close">Got it — back to menu</button>
   </div>
 </div>
 
@@ -1212,6 +1270,12 @@ function setupMenuEvents(){
   document.getElementById('resume-btn').addEventListener('click',togglePause);
   document.getElementById('menu-btn').addEventListener('click',returnToMenu);
   document.getElementById('btn-pause').addEventListener('click',togglePause);
+  document.getElementById('howto-btn').addEventListener('click',()=>{
+    document.getElementById('howto').style.display='flex';
+  });
+  document.getElementById('howto-close').addEventListener('click',()=>{
+    document.getElementById('howto').style.display='none';
+  });
   document.getElementById('btn-fs').addEventListener('click',()=>{
     if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});
     else document.exitFullscreen();

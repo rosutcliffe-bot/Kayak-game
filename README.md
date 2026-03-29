@@ -11,6 +11,24 @@ can open it and start paddling immediately.
 
 ---
 
+## 🚀 How to Play (Quick Start)
+
+1. **Open the game** — go to your deployed URL or run locally (see below)
+2. **Click "Launch Downstream"** on the menu screen
+3. **Paddle!** The river current carries you automatically:
+   - Press **W** to paddle forward
+   - Press **A** to paddle/steer left, **D** to paddle/steer right
+   - Press **S** to back-paddle/brake
+   - Use **←** / **→** arrow keys for fine steering
+4. **Dodge rocks** — grey boulders in the river will slow you down on impact
+5. **Survive rapids** — when you see ⚠ RAPIDS, paddle hard and steer carefully
+6. **Use eddies** — calm water behind large rocks lets you rest
+7. **Escape stoppers** — recirculating water at drops can trap you; paddle forward (**W**) to break free
+
+> 💡 **Tip:** Click **"How to Play"** on the menu for full controls reference, or check the table below.
+
+---
+
 ## 🌊 Play It Now
 
 ### Quickest way (GitHub Pages — free)
