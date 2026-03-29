@@ -54,13 +54,13 @@ namespace KayakSimulator.UI
         {
             // Wire up listeners
             if (masterVolumeSlider != null)
-                masterVolumeSlider.onValueChanged.AddListener(v => { UpdateLabel(masterVolumeLabel, v); SaveFloat(KeyMasterVolume, v); });
+                masterVolumeSlider.onValueChanged.AddListener(OnMasterVolumeChanged);
             if (musicVolumeSlider  != null)
-                musicVolumeSlider.onValueChanged.AddListener(v  => { UpdateLabel(musicVolumeLabel, v);  SaveFloat(KeyMusicVolume, v);  });
+                musicVolumeSlider.onValueChanged.AddListener(OnMusicVolumeChanged);
             if (sfxVolumeSlider    != null)
-                sfxVolumeSlider.onValueChanged.AddListener(v    => { UpdateLabel(sfxVolumeLabel, v);    SaveFloat(KeySFXVolume, v);    });
+                sfxVolumeSlider.onValueChanged.AddListener(OnSFXVolumeChanged);
             if (sensitivitySlider  != null)
-                sensitivitySlider.onValueChanged.AddListener(v  => { UpdateLabel(sensitivityLabel, v);  SaveFloat(KeySensitivity, v);  });
+                sensitivitySlider.onValueChanged.AddListener(OnSensitivityChanged);
 
             if (qualityDropdown != null)
             {
@@ -71,6 +71,16 @@ namespace KayakSimulator.UI
 
             if (fullscreenToggle != null)
                 fullscreenToggle.onValueChanged.AddListener(OnFullscreenChanged);
+        }
+
+        private void OnDestroy()
+        {
+            if (masterVolumeSlider != null) masterVolumeSlider.onValueChanged.RemoveListener(OnMasterVolumeChanged);
+            if (musicVolumeSlider  != null) musicVolumeSlider.onValueChanged.RemoveListener(OnMusicVolumeChanged);
+            if (sfxVolumeSlider    != null) sfxVolumeSlider.onValueChanged.RemoveListener(OnSFXVolumeChanged);
+            if (sensitivitySlider  != null) sensitivitySlider.onValueChanged.RemoveListener(OnSensitivityChanged);
+            if (qualityDropdown    != null) qualityDropdown.onValueChanged.RemoveListener(OnQualityChanged);
+            if (fullscreenToggle   != null) fullscreenToggle.onValueChanged.RemoveListener(OnFullscreenChanged);
         }
 
         // ---------------------------------------------------------------
@@ -96,6 +106,30 @@ namespace KayakSimulator.UI
         // ---------------------------------------------------------------
         // Event handlers
         // ---------------------------------------------------------------
+        private void OnMasterVolumeChanged(float v)
+        {
+            UpdateLabel(masterVolumeLabel, v);
+            SaveFloat(KeyMasterVolume, v);
+        }
+
+        private void OnMusicVolumeChanged(float v)
+        {
+            UpdateLabel(musicVolumeLabel, v);
+            SaveFloat(KeyMusicVolume, v);
+        }
+
+        private void OnSFXVolumeChanged(float v)
+        {
+            UpdateLabel(sfxVolumeLabel, v);
+            SaveFloat(KeySFXVolume, v);
+        }
+
+        private void OnSensitivityChanged(float v)
+        {
+            UpdateLabel(sensitivityLabel, v);
+            SaveFloat(KeySensitivity, v);
+        }
+
         private void OnQualityChanged(int level)
         {
             QualitySettings.SetQualityLevel(level, true);
