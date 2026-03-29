@@ -3,8 +3,6 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: ["main"]
-    paths:
-      - "docs/**"
   workflow_dispatch:
 
 permissions:
@@ -25,6 +23,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify docs directory
+        run: |
+          if [ ! -f docs/index.html ]; then
+            echo "::error::docs/index.html not found — nothing to deploy"
+            exit 1
+          fi
+          echo "✅ docs/index.html found — deploying to GitHub Pages"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

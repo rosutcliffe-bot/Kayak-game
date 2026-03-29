@@ -1,0 +1,278 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  # ── Validate the web-playable game (docs/index.html) ────────────
+  validate-web:
+    name: Validate Web Game
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check docs/index.html exists
+        run: |
+          if [ ! -f docs/index.html ]; then
+            echo "::error::docs/index.html not found"
+            exit 1
+          fi
+          echo "✅ docs/index.html found ($(wc -c < docs/index.html) bytes)"
+
+      - name: Validate HTML structure
+        run: |
+          echo "Checking HTML structure..."
+          # Verify it's a valid HTML document
+          grep -q '<!DOCTYPE html>' docs/index.html || { echo "::error::Missing DOCTYPE"; exit 1; }
+          grep -q '<html' docs/index.html || { echo "::error::Missing <html> tag"; exit 1; }
+          grep -q '</html>' docs/index.html || { echo "::error::Missing closing </html> tag"; exit 1; }
+          grep -q '<head>' docs/index.html || { echo "::error::Missing <head> tag"; exit 1; }
+          grep -q '</head>' docs/index.html || { echo "::error::Missing closing </head> tag"; exit 1; }
+          grep -q '<body>' docs/index.html || { echo "::error::Missing <body> tag"; exit 1; }
+          grep -q '</body>' docs/index.html || { echo "::error::Missing closing </body> tag"; exit 1; }
+          echo "✅ HTML structure is valid"
+
+      - name: Validate JavaScript syntax
+        run: |
+          echo "Extracting and validating inline JavaScript..."
+          node -e "
+            const fs = require('fs');
+            const html = fs.readFileSync('docs/index.html', 'utf8');
+            const match = html.match(/<script>([\s\S]*?)<\/script>/);
+            if (!match) { console.error('No inline script found'); process.exit(1); }
+            try {
+              new Function(match[1]);
+              console.log('✅ JavaScript syntax is valid');
+            } catch(e) {
+              console.error('❌ JavaScript syntax error:', e.message);
+              process.exit(1);
+            }
+          "
+
+      - name: Check Three.js CDN reference
+        run: |
+          grep -q 'three.min.js' docs/index.html || { echo "::error::Three.js reference not found"; exit 1; }
+          echo "✅ Three.js CDN reference present"
+
+      - name: Verify game features
+        run: |
+          echo "Checking for required game features..."
+          ERRORS=0
+          check_feature() {
+            if grep -qiE "$2" docs/index.html; then
+              echo "  ✅ $1"
+            else
+              echo "  ❌ $1 — pattern not found"
+              ERRORS=$((ERRORS+1))
+            fi
+          }
+          check_feature "Gerstner waves"      "gerstner"
+          check_feature "Buoyancy system"      "buoyancy"
+          check_feature "Camera modes"         "ThirdPerson|FirstPerson|Orbital"
+          check_feature "HUD elements"         "speed.*display|hud"
+          check_feature "Pause menu"           "pause"
+          check_feature "Main menu"            "main.menu|mainMenu"
+          check_feature "Keyboard controls"    "KeyA|keyA"
+          check_feature "GLSL vertex shader"   "gl_Position|vertexShader"
+          check_feature "GLSL fragment shader" "gl_FragColor|fragmentShader"
+          if [ $ERRORS -gt 0 ]; then
+            echo "::warning::$ERRORS feature(s) could not be verified"
+          fi
+          echo "✅ Feature check complete"
+
+  # ── Validate Unity C# scripts ───────────────────────────────────
+  validate-unity:
+    name: Validate Unity Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check project structure
+        run: |
+          echo "Verifying Unity project structure..."
+          ERRORS=0
+          check_path() {
+            if [ -e "$1" ]; then
+              echo "  ✅ $1"
+            else
+              echo "  ❌ $1 — missing"
+              ERRORS=$((ERRORS+1))
+            fi
+          }
+
+          echo "── Core files ──"
+          check_path "ProjectSettings/ProjectVersion.txt"
+          check_path "Packages/manifest.json"
+          check_path "Assets/Scripts/KayakSimulator.asmdef"
+
+          echo "── Script directories ──"
+          check_path "Assets/Scripts/Core"
+          check_path "Assets/Scripts/Physics"
+          check_path "Assets/Scripts/Paddle"
+          check_path "Assets/Scripts/Controls"
+          check_path "Assets/Scripts/Water"
+          check_path "Assets/Scripts/UI"
+          check_path "Assets/Scripts/Utilities"
+
+          echo "── Core scripts ──"
+          check_path "Assets/Scripts/Core/GameManager.cs"
+          check_path "Assets/Scripts/Core/InputManager.cs"
+          check_path "Assets/Scripts/Physics/GerstnerWaveSystem.cs"
+          check_path "Assets/Scripts/Physics/BuoyancySystem.cs"
+          check_path "Assets/Scripts/Physics/KayakPhysicsController.cs"
+          check_path "Assets/Scripts/Physics/WaterPhysics.cs"
+          check_path "Assets/Scripts/Paddle/PaddleBlade.cs"
+          check_path "Assets/Scripts/Paddle/PaddleController.cs"
+          check_path "Assets/Scripts/Controls/CameraController.cs"
+          check_path "Assets/Scripts/Water/WaterSurface.cs"
+          check_path "Assets/Scripts/Water/WaterEffects.cs"
+          check_path "Assets/Scripts/UI/MainMenuManager.cs"
+          check_path "Assets/Scripts/UI/PauseMenuManager.cs"
+          check_path "Assets/Scripts/UI/SettingsManager.cs"
+          check_path "Assets/Scripts/UI/HUDManager.cs"
+          check_path "Assets/Scripts/Utilities/ObjectPool.cs"
+          check_path "Assets/Scripts/Utilities/SmoothFollow.cs"
+
+          echo "── Shader ──"
+          check_path "Assets/Shaders/Water/OceanSurface.shader"
+
+          echo "── Documentation ──"
+          check_path "Documentation/SceneSetupGuide.md"
+          check_path "README.md"
+
+          if [ $ERRORS -gt 0 ]; then
+            echo "::error::$ERRORS expected file(s) missing"
+            exit 1
+          fi
+          echo "✅ All expected files present"
+
+      - name: Validate C# syntax (basic)
+        run: |
+          echo "Running basic C# syntax checks..."
+          ERRORS=0
+          for cs in $(find Assets/Scripts -name '*.cs'); do
+            # Check for matching braces
+            OPEN=$(grep -o '{' "$cs" | wc -l)
+            CLOSE=$(grep -o '}' "$cs" | wc -l)
+            if [ "$OPEN" -ne "$CLOSE" ]; then
+              echo "::error file=$cs::Mismatched braces: $OPEN open vs $CLOSE close"
+              ERRORS=$((ERRORS+1))
+            fi
+
+            # Check each .cs has a namespace
+            if ! grep -q 'namespace ' "$cs"; then
+              echo "::error file=$cs::Missing namespace declaration"
+              ERRORS=$((ERRORS+1))
+            fi
+
+            # Check for class/struct/enum declaration
+            if ! grep -qE '(class|struct|enum|interface) ' "$cs"; then
+              echo "::error file=$cs::No type declaration found"
+              ERRORS=$((ERRORS+1))
+            fi
+          done
+
+          if [ $ERRORS -gt 0 ]; then
+            echo "::error::$ERRORS C# validation error(s) found"
+            exit 1
+          fi
+          CS_COUNT=$(find Assets/Scripts -name '*.cs' | wc -l)
+          echo "✅ All $CS_COUNT C# scripts passed basic validation"
+
+      - name: Validate meta files
+        run: |
+          echo "Checking that all assets have .meta files..."
+          ERRORS=0
+          # Check that every .cs file has a .meta
+          for cs in $(find Assets/Scripts -name '*.cs'); do
+            if [ ! -f "${cs}.meta" ]; then
+              echo "::warning file=$cs::Missing .meta file for $cs"
+              ERRORS=$((ERRORS+1))
+            fi
+          done
+
+          # Check shader meta
+          for shader in $(find Assets/Shaders -name '*.shader' 2>/dev/null); do
+            if [ ! -f "${shader}.meta" ]; then
+              echo "::warning file=$shader::Missing .meta file for $shader"
+              ERRORS=$((ERRORS+1))
+            fi
+          done
+
+          # Check asmdef meta
+          for asmdef in $(find Assets -name '*.asmdef'); do
+            if [ ! -f "${asmdef}.meta" ]; then
+              echo "::warning file=$asmdef::Missing .meta file for $asmdef"
+              ERRORS=$((ERRORS+1))
+            fi
+          done
+
+          if [ $ERRORS -gt 0 ]; then
+            echo "::warning::$ERRORS missing .meta file(s) — Unity may regenerate GUIDs"
+          else
+            echo "✅ All assets have corresponding .meta files"
+          fi
+
+      - name: Validate Unity version
+        run: |
+          VERSION=$(head -1 ProjectSettings/ProjectVersion.txt | sed 's/m_EditorVersion: //')
+          echo "Unity version: $VERSION"
+          if echo "$VERSION" | grep -q '^2022\.3'; then
+            echo "✅ Confirmed Unity 2022.3 LTS"
+          else
+            echo "::warning::Expected Unity 2022.3 LTS, found $VERSION"
+          fi
+
+      - name: Validate package manifest
+        run: |
+          echo "Checking required packages..."
+          node -e "
+            const manifest = require('./Packages/manifest.json');
+            const deps = manifest.dependencies || {};
+            const required = [
+              'com.unity.inputsystem',
+              'com.unity.render-pipelines.universal',
+              'com.unity.textmeshpro'
+            ];
+            let ok = true;
+            required.forEach(pkg => {
+              if (deps[pkg]) {
+                console.log('  ✅ ' + pkg + ' @ ' + deps[pkg]);
+              } else {
+                console.error('  ❌ ' + pkg + ' — missing');
+                ok = false;
+              }
+            });
+            // Optional packages
+            ['com.unity.cinemachine'].forEach(pkg => {
+              if (deps[pkg]) console.log('  ✅ ' + pkg + ' @ ' + deps[pkg] + ' (optional)');
+            });
+            if (!ok) process.exit(1);
+            console.log('✅ All required packages present');
+          "
+
+      - name: Check namespace consistency
+        run: |
+          echo "Verifying namespace conventions..."
+          ERRORS=0
+          for cs in $(find Assets/Scripts -name '*.cs'); do
+            NS=$(grep -oP 'namespace \K[\w.]+' "$cs" || echo "NONE")
+            if ! echo "$NS" | grep -q '^KayakSimulator'; then
+              echo "::warning file=$cs::Namespace '$NS' does not follow KayakSimulator.* convention"
+              ERRORS=$((ERRORS+1))
+            fi
+          done
+          if [ $ERRORS -eq 0 ]; then
+            echo "✅ All scripts use KayakSimulator.* namespace"
+          fi
