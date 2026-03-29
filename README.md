@@ -1,7 +1,7 @@
 # Kayak Simulator
 
 [![CI](https://github.com/rosutcliffe-bot/Kayak-game/actions/workflows/ci.yml/badge.svg)](https://github.com/rosutcliffe-bot/Kayak-game/actions/workflows/ci.yml)
-[![Deploy to GitHub Pages](https://github.com/rosutcliffe-bot/Kayak-game/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/rosutcliffe-bot/Kayak-game/actions/workflows/deploy-pages.yml)
+[![Deploy to GitHub Pages](https://github.com/rosutcliffe-bot/Kayak-game/actions/workflows/static.yml/badge.svg)](https://github.com/rosutcliffe-bot/Kayak-game/actions/workflows/static.yml)
 
 An **ultra-realistic kayak simulator** built in Unity (URP), featuring physically
 accurate water physics, immersive visuals, and both Arcade and Simulation control modes.
