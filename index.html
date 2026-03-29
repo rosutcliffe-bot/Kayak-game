@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Kayak Simulator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#0a1828;color:#e0e8f0;touch-action:none;-webkit-tap-highlight-color:transparent}
+canvas{display:block}
+
+/* ── Menu ── */
+#menu{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(160deg,#0b1e30 0%,#163a5c 50%,#0d2840 100%);z-index:100;text-align:center;gap:12px}
+#menu h1{font-size:2.6rem;color:#7ec8e3;letter-spacing:.06em;margin-bottom:0}
+#menu .subtitle{font-size:1.05rem;color:#8abed4;margin-bottom:10px}
+#menu .mode-row{display:flex;gap:16px;margin:6px 0}
+#menu .mode-row label{cursor:pointer;padding:8px 18px;border-radius:8px;background:rgba(126,200,227,.12);border:1px solid rgba(126,200,227,.25);transition:background .2s,border-color .2s;font-size:.95rem}
+#menu .mode-row input{display:none}
+#menu .mode-row input:checked+span{color:#7ec8e3;font-weight:700}
+#menu .mode-row label:has(input:checked){background:rgba(126,200,227,.25);border-color:rgba(126,200,227,.5)}
+.btn{padding:12px 36px;font-size:1.15rem;border:none;border-radius:10px;cursor:pointer;transition:background .2s,transform .1s;font-weight:600}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,#2a8fc4,#3bb5e8);color:#fff}
+.btn-primary:hover{background:linear-gradient(135deg,#3bb5e8,#5cc8ef)}
+.btn-secondary{background:rgba(255,255,255,.1);color:#b0d0e8;border:1px solid rgba(255,255,255,.15)}
+.btn-secondary:hover{background:rgba(255,255,255,.18)}
+#menu .controls-hint{font-size:.82rem;color:#6a9ab8;margin-top:14px;line-height:1.7}
+
+/* ── HUD ── */
+#hud{position:fixed;top:0;left:0;right:0;display:none;pointer-events:none;z-index:30;padding:12px 16px}
+#hud-top{display:flex;justify-content:space-between;align-items:flex-start}
+#speed-box{background:rgba(11,26,43,.7);padding:8px 16px;border-radius:10px;backdrop-filter:blur(4px)}
+#speed-val{font-size:1.8rem;font-weight:700;color:#7ec8e3}
+#speed-unit{font-size:.75rem;color:#6a9ab8}
+#heading-box{background:rgba(11,26,43,.7);padding:8px 16px;border-radius:10px;backdrop-filter:blur(4px);text-align:center}
+#heading-val{font-size:1.6rem;font-weight:700;color:#d4e8f0}
+#heading-lbl{font-size:.7rem;color:#6a9ab8}
+#stroke-box{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:none;gap:12px;align-items:flex-end;z-index:30;pointer-events:none}
+.stroke-col{text-align:center}
+.stroke-label{font-size:.65rem;color:#6a9ab8;margin-top:4px}
+.stroke-track{width:22px;height:70px;background:rgba(255,255,255,.08);border-radius:6px;position:relative;overflow:hidden}
+.stroke-fill{position:absolute;bottom:0;width:100%;background:linear-gradient(0deg,#2a8fc4,#7ec8e3);border-radius:6px;transition:height 80ms}
+#distance-box{position:fixed;bottom:16px;right:16px;display:none;background:rgba(11,26,43,.7);padding:6px 14px;border-radius:10px;backdrop-filter:blur(4px);z-index:30;pointer-events:none;font-size:.85rem;color:#8abed4}
+
+/* ── Toolbar ── */
+#toolbar{position:fixed;top:12px;right:12px;display:none;gap:8px;z-index:40}
+.tb{width:36px;height:36px;border:none;border-radius:8px;background:rgba(11,26,43,.7);color:#7ec8e3;font-size:1.05rem;cursor:pointer;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;transition:background .2s;pointer-events:auto}
+.tb:hover{background:rgba(62,130,180,.45)}
+
+/* ── Pause ── */
+#pause{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,24,40,.88);z-index:80;gap:14px;backdrop-filter:blur(6px)}
+#pause h2{font-size:1.8rem;color:#7ec8e3;margin-bottom:6px}
+
+/* ── Touch controls ── */
+#touch{display:none;position:fixed;bottom:0;left:0;right:0;z-index:35;pointer-events:none}
+.tz{position:absolute;bottom:16px;border-radius:50%;background:rgba(126,200,227,.1);border:2px solid rgba(126,200,227,.25);display:flex;align-items:center;justify-content:center;font-size:.7rem;color:rgba(126,200,227,.55);pointer-events:auto;user-select:none;-webkit-user-select:none}
+.tz:active{background:rgba(126,200,227,.3)}
+#tl{left:16px;width:100px;height:100px}
+#tr{right:16px;width:100px;height:100px}
+
+/* ── Responsive ── */
+@media(max-width:600px){
+  #menu h1{font-size:1.7rem}
+  #menu .subtitle{font-size:.88rem}
+  #speed-val{font-size:1.3rem}
+  #heading-val{font-size:1.2rem}
+}
+</style>
+</head>
+<body>
+
+<!-- Menu -->
+<div id="menu">
+  <h1>🛶 Kayak Simulator</h1>
+  <p class="subtitle">Paddle through open water</p>
+  <div class="mode-row">
+    <label><input type="radio" name="mode" value="arcade" checked><span> Arcade</span></label>
+    <label><input type="radio" name="mode" value="simulation"><span> Simulation</span></label>
+  </div>
+  <button class="btn btn-primary" id="start-btn">Start Paddling</button>
+  <div class="controls-hint">
+    <b>Keyboard:</b> A / D = paddle &nbsp; ← → = steer &nbsp; Q / E = lean &nbsp; Esc = pause &nbsp; C = camera<br>
+    <b>Mobile:</b> tap left / right zones to paddle
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-top">
+    <div id="speed-box"><span id="speed-val">0.0</span> <span id="speed-unit">km/h</span></div>
+    <div id="heading-box"><div id="heading-val">000°</div><div id="heading-lbl">HEADING</div></div>
+  </div>
+</div>
+<div id="stroke-box">
+  <div class="stroke-col"><div class="stroke-track"><div class="stroke-fill" id="stroke-l"></div></div><div class="stroke-label">L</div></div>
+  <div class="stroke-col"><div class="stroke-track"><div class="stroke-fill" id="stroke-r"></div></div><div class="stroke-label">R</div></div>
+</div>
+<div id="distance-box"><span id="dist-val">0</span> m</div>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <button class="tb" id="btn-fs" title="Fullscreen">⛶</button>
+  <button class="tb" id="btn-mute" title="Mute">🔊</button>
+  <button class="tb" id="btn-pause" title="Pause">⏸</button>
+</div>
+
+<!-- Pause -->
+<div id="pause">
+  <h2>Paused</h2>
+  <button class="btn btn-primary" id="resume-btn">Resume</button>
+  <button class="btn btn-secondary" id="menu-btn">Main Menu</button>
+</div>
+
+<!-- Touch -->
+<div id="touch">
+  <div class="tz" id="tl">Left<br>Paddle</div>
+  <div class="tz" id="tr">Right<br>Paddle</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════
+   CONFIGURATION
+   ═══════════════════════════════════════════════ */
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const WATER_SIZE = 300;
+const WATER_SEG  = isMobile ? 80 : 140;
+const WAVES = [
+  { dx: 1.0, dz: 0.3, amp: 0.38, wl: 11.0, spd: 0.9, steep: 0.42 },
+  { dx: 0.6, dz: 0.85, amp: 0.20, wl: 6.0, spd: 1.4, steep: 0.35 },
+  { dx:-0.35, dz: 1.0, amp: 0.12, wl: 3.2, spd: 1.9, steep: 0.25 },
+  { dx:-0.8, dz:-0.45, amp: 0.07, wl: 1.9, spd: 2.4, steep: 0.15 }
+];
+// Normalize wave directions
+WAVES.forEach(w => { const l = Math.hypot(w.dx, w.dz); w.dx /= l; w.dz /= l; });
+
+/* ═══════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════ */
+let scene, camera, renderer, clock;
+let waterMesh, kayakGroup, paddlePivot, leftBladeMesh, rightBladeMesh;
+let buoys = [];
+let audioCtx, paddleOsc;
+
+const S = {
+  mode: 'arcade',
+  playing: false,
+  paused: false,
+  heading: 0,
+  speed: 0,
+  angVel: 0,
+  lean: 0,
+  lStroke: 0,
+  rStroke: 0,
+  paddleAnim: 0,
+  dist: 0,
+  camMode: 0, // 0=third, 1=first, 2=orbit
+  orbitAngle: 0,
+  posX: 0, posZ: 0, posY: 0
+};
+
+const input = { left:false, right:false, steerL:false, steerR:false, leanL:false, leanR:false };
+
+/* ═══════════════════════════════════════════════
+   WATER HEIGHT (matches shader)
+   ═══════════════════════════════════════════════ */
+function waterH(x, z, t) {
+  let h = 0;
+  for (const w of WAVES) {
+    const k = 6.28318 / w.wl;
+    h += w.amp * Math.sin(k * (w.dx * x + w.dz * z - w.spd * t));
+  }
+  return h;
+}
+function waterNormal(x, z, t) {
+  const e = 0.15;
+  const c = waterH(x, z, t);
+  return new THREE.Vector3(-(waterH(x+e,z,t)-c)/e, 1, -(waterH(x,z+e,t)-c)/e).normalize();
+}
+
+/* ═══════════════════════════════════════════════
+   THREE.JS SETUP
+   ═══════════════════════════════════════════════ */
+function init() {
+  clock = new THREE.Clock();
+
+  // Scene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x6aaed6);
+  scene.fog = new THREE.FogExp2(0x6aaed6, 0.006);
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(62, innerWidth/innerHeight, 0.3, 500);
+  camera.position.set(0, 3, -6);
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, isMobile ? 1.5 : 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  document.body.prepend(renderer.domElement);
+
+  // Lights
+  const sun = new THREE.DirectionalLight(0xffeedd, 1.4);
+  sun.position.set(60, 100, 40);
+  scene.add(sun);
+  scene.add(new THREE.HemisphereLight(0x87CEEB, 0x2a5a3a, 0.45));
+
+  createWater();
+  createKayak();
+  createBuoys();
+
+  window.addEventListener('resize', onResize);
+  setupInput();
+  setupMenuEvents();
+  animate();
+}
+
+/* ═══════════════════════════════════════════════
+   WATER
+   ═══════════════════════════════════════════════ */
+function createWater() {
+  const geo = new THREE.PlaneGeometry(WATER_SIZE, WATER_SIZE, WATER_SEG, WATER_SEG);
+  geo.rotateX(-Math.PI / 2);
+
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime:   { value: 0 },
+      uSunDir: { value: new THREE.Vector3(0.5, 0.75, 0.3).normalize() },
+      fogColor:   { value: scene.fog.color },
+      fogDensity: { value: scene.fog.density }
+    },
+    vertexShader: `
+      uniform float uTime;
+      varying vec3 vWP;
+      varying vec3 vN;
+      void main(){
+        vec3 p = (modelMatrix * vec4(position,1.0)).xyz;
+        vec3 d = p;
+        vec3 n = vec3(0.0,1.0,0.0);
+        // Wave 0
+        { float k=6.28318/11.0; vec2 dir=normalize(vec2(1.0,0.3));
+          float f=k*(dot(dir,p.xz)-0.9*uTime);
+          d.x+=dir.x*(0.42/k)*cos(f); d.y+=0.38*sin(f); d.z+=dir.y*(0.42/k)*cos(f);
+          n.x-=dir.x*0.38*k*cos(f); n.z-=dir.y*0.38*k*cos(f);}
+        // Wave 1
+        { float k=6.28318/6.0; vec2 dir=normalize(vec2(0.6,0.85));
+          float f=k*(dot(dir,p.xz)-1.4*uTime);
+          d.x+=dir.x*(0.35/k)*cos(f); d.y+=0.20*sin(f); d.z+=dir.y*(0.35/k)*cos(f);
+          n.x-=dir.x*0.20*k*cos(f); n.z-=dir.y*0.20*k*cos(f);}
+        // Wave 2
+        { float k=6.28318/3.2; vec2 dir=normalize(vec2(-0.35,1.0));
+          float f=k*(dot(dir,p.xz)-1.9*uTime);
+          d.x+=dir.x*(0.25/k)*cos(f); d.y+=0.12*sin(f); d.z+=dir.y*(0.25/k)*cos(f);
+          n.x-=dir.x*0.12*k*cos(f); n.z-=dir.y*0.12*k*cos(f);}
+        // Wave 3
+        { float k=6.28318/1.9; vec2 dir=normalize(vec2(-0.8,-0.45));
+          float f=k*(dot(dir,p.xz)-2.4*uTime);
+          d.x+=dir.x*(0.15/k)*cos(f); d.y+=0.07*sin(f); d.z+=dir.y*(0.15/k)*cos(f);
+          n.x-=dir.x*0.07*k*cos(f); n.z-=dir.y*0.07*k*cos(f);}
+        vWP = d;
+        vN  = normalize(n);
+        gl_Position = projectionMatrix * viewMatrix * vec4(d,1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uSunDir;
+      uniform vec3 fogColor;
+      uniform float fogDensity;
+      varying vec3 vWP;
+      varying vec3 vN;
+      void main(){
+        vec3 shallow = vec3(0.08,0.55,0.65);
+        vec3 deep    = vec3(0.02,0.09,0.28);
+        float hf = clamp((vWP.y+0.5)/1.2, 0.0, 1.0);
+        vec3 col = mix(deep, shallow, hf);
+        // Foam
+        float foam = smoothstep(0.22,0.42,vWP.y);
+        col = mix(col, vec3(0.82,0.90,0.94), foam*0.55);
+        // Diffuse
+        vec3 n = normalize(vN);
+        float diff = max(dot(n, uSunDir), 0.0);
+        col *= 0.38 + 0.62*diff;
+        // Specular
+        vec3 vd = normalize(cameraPosition - vWP);
+        vec3 hd = normalize(uSunDir + vd);
+        float spec = pow(max(dot(n, hd), 0.0), 80.0);
+        col += vec3(1.0,0.95,0.82)*spec*0.6;
+        // Fresnel
+        float fres = pow(1.0 - max(dot(n, vd), 0.0), 3.5);
+        col = mix(col, vec3(0.5,0.7,0.88), fres*0.35);
+        // Fog
+        float fd = length(vWP - cameraPosition);
+        float ff = 1.0 - exp(-fogDensity*fogDensity*fd*fd);
+        col = mix(col, fogColor.rgb, ff);
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+    side: THREE.FrontSide
+  });
+  waterMesh = new THREE.Mesh(geo, mat);
+  scene.add(waterMesh);
+}
+
+/* ═══════════════════════════════════════════════
+   KAYAK MODEL
+   ═══════════════════════════════════════════════ */
+function createKayak() {
+  kayakGroup = new THREE.Group();
+
+  // Hull — tapered box
+  const hGeo = new THREE.BoxGeometry(3.2, 0.22, 0.52, 16, 1, 4);
+  const pos = hGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const taper = 1.0 - Math.pow(Math.abs(x) / 1.6, 2.2) * 0.8;
+    pos.setZ(i, pos.getZ(i) * Math.max(taper, 0.08));
+    // Slight curve underneath
+    if (pos.getY(i) < 0) pos.setY(i, pos.getY(i) - (1 - taper) * 0.08);
+  }
+  hGeo.computeVertexNormals();
+  const hMat = new THREE.MeshPhongMaterial({ color: 0xcc2828, specular: 0x444444, shininess: 50 });
+  kayakGroup.add(new THREE.Mesh(hGeo, hMat));
+
+  // Deck stripe
+  const dGeo = new THREE.BoxGeometry(2.4, 0.04, 0.36, 12, 1, 1);
+  const dp = dGeo.attributes.position;
+  for (let i = 0; i < dp.count; i++) {
+    const x = dp.getX(i);
+    const taper = 1.0 - Math.pow(Math.abs(x) / 1.2, 2) * 0.7;
+    dp.setZ(i, dp.getZ(i) * Math.max(taper, 0.15));
+  }
+  dGeo.computeVertexNormals();
+  const deck = new THREE.Mesh(dGeo, new THREE.MeshPhongMaterial({ color: 0xe03838 }));
+  deck.position.y = 0.12;
+  kayakGroup.add(deck);
+
+  // Cockpit rim
+  const rGeo = new THREE.TorusGeometry(0.19, 0.025, 8, 20);
+  rGeo.rotateX(Math.PI / 2);
+  const rim = new THREE.Mesh(rGeo, new THREE.MeshPhongMaterial({ color: 0x222222 }));
+  rim.position.y = 0.14;
+  kayakGroup.add(rim);
+
+  // Seat indicator
+  const sGeo = new THREE.BoxGeometry(0.25, 0.03, 0.28);
+  const seat = new THREE.Mesh(sGeo, new THREE.MeshPhongMaterial({ color: 0x333333 }));
+  seat.position.y = 0.09;
+  seat.position.x = -0.05;
+  kayakGroup.add(seat);
+
+  // Paddle
+  paddlePivot = new THREE.Group();
+  paddlePivot.position.set(0, 0.32, 0);
+
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.014, 0.014, 1.7, 8),
+    new THREE.MeshPhongMaterial({ color: 0x444444 })
+  );
+  shaft.rotation.z = Math.PI / 2;
+  paddlePivot.add(shaft);
+
+  const bladeMat = new THREE.MeshPhongMaterial({ color: 0x1a6fa0, specular: 0x333333, shininess: 30 });
+
+  leftBladeMesh = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.30, 0.13), bladeMat);
+  leftBladeMesh.position.set(-0.90, -0.02, 0);
+  paddlePivot.add(leftBladeMesh);
+
+  rightBladeMesh = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.30, 0.13), bladeMat.clone());
+  rightBladeMesh.position.set(0.90, -0.02, 0);
+  paddlePivot.add(rightBladeMesh);
+
+  kayakGroup.add(paddlePivot);
+  scene.add(kayakGroup);
+}
+
+/* ═══════════════════════════════════════════════
+   BUOYS
+   ═══════════════════════════════════════════════ */
+function createBuoys() {
+  const colors = [0xff3333, 0xffaa00, 0xff3333, 0x33cc55, 0xffaa00, 0xff3333,
+                  0x33cc55, 0xffaa00, 0xff3333, 0x33cc55, 0xffaa00, 0x33cc55];
+  for (let i = 0; i < 12; i++) {
+    const a  = (i / 12) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+    const r  = 18 + Math.random() * 35;
+    const bx = Math.cos(a) * r;
+    const bz = Math.sin(a) * r;
+
+    const g = new THREE.Group();
+    const bMat = new THREE.MeshPhongMaterial({ color: colors[i] });
+
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 0.5, 10), bMat);
+    g.add(base);
+    const top = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), bMat);
+    top.position.y = 0.36;
+    g.add(top);
+    // White stripe
+    const stripe = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.19, 0.21, 0.12, 10),
+      new THREE.MeshPhongMaterial({ color: 0xeeeeee })
+    );
+    stripe.position.y = 0.1;
+    g.add(stripe);
+
+    g.position.set(bx, 0, bz);
+    g.userData = { bx, bz };
+    scene.add(g);
+    buoys.push(g);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   PHYSICS
+   ═══════════════════════════════════════════════ */
+function updatePhysics(dt, t) {
+  const isArcade = S.mode === 'arcade';
+  const thrust   = isArcade ? 7.0 : 5.0;
+  const turnF    = isArcade ? 2.0 : 2.8;
+  const drag     = 0.55;
+  const aDrag    = 2.2;
+
+  // Paddle strokes
+  if (input.left)  { S.lStroke = Math.min(S.lStroke + dt * 5, 1); }
+  else             { S.lStroke = Math.max(S.lStroke - dt * 4, 0); }
+  if (input.right) { S.rStroke = Math.min(S.rStroke + dt * 5, 1); }
+  else             { S.rStroke = Math.max(S.rStroke - dt * 4, 0); }
+
+  // Thrust
+  const lf = input.left  ? 1 : 0;
+  const rf = input.right ? 1 : 0;
+  S.speed += (lf + rf) * thrust * dt;
+
+  // Turning from strokes
+  if (isArcade) {
+    // Arcade: left paddle = turn left (intuitive)
+    S.angVel -= lf * turnF * dt * 0.5;
+    S.angVel += rf * turnF * dt * 0.5;
+  } else {
+    // Simulation: left stroke turns right (realistic)
+    S.angVel += lf * turnF * dt * 0.5;
+    S.angVel -= rf * turnF * dt * 0.5;
+  }
+
+  // Steer (arrow keys, arcade only adds extra steer)
+  if (input.steerL) S.angVel -= (isArcade ? 2.5 : 1.2) * dt;
+  if (input.steerR) S.angVel += (isArcade ? 2.5 : 1.2) * dt;
+
+  // Lean
+  let targetLean = 0;
+  if (input.leanL) targetLean = -1;
+  if (input.leanR) targetLean =  1;
+  S.lean += (targetLean - S.lean) * Math.min(dt * 4, 1);
+
+  // Drag
+  S.speed  *= Math.max(1 - drag * dt, 0);
+  S.angVel *= Math.max(1 - aDrag * dt, 0);
+
+  // Clamp speed
+  S.speed = Math.max(S.speed, 0);
+  if (S.speed > 12) S.speed = 12;
+
+  // Integrate
+  S.heading += S.angVel * dt;
+  const dx = Math.sin(S.heading) * S.speed * dt;
+  const dz = Math.cos(S.heading) * S.speed * dt;
+  S.posX += dx;
+  S.posZ += dz;
+  S.dist += Math.hypot(dx, dz);
+
+  // Water height + tilt
+  S.posY = waterH(S.posX, S.posZ, t);
+  const n = waterNormal(S.posX, S.posZ, t);
+
+  // Apply to kayak group
+  kayakGroup.position.set(S.posX, S.posY, S.posZ);
+  kayakGroup.rotation.y = S.heading;
+
+  // Tilt kayak with water surface + lean
+  const pitch = Math.atan2(n.z, n.y) * 0.6;
+  const roll  = Math.atan2(n.x, n.y) * 0.6 + S.lean * 0.18;
+  kayakGroup.rotation.x = pitch;
+  kayakGroup.rotation.z = roll;
+
+  // Paddle animation
+  let targetPaddle = 0;
+  if (input.left && !input.right)  targetPaddle = -0.7;
+  if (input.right && !input.left)  targetPaddle =  0.7;
+  S.paddleAnim += (targetPaddle - S.paddleAnim) * Math.min(dt * 10, 1);
+  paddlePivot.rotation.x = S.paddleAnim;
+
+  // Buoys bob
+  for (const b of buoys) {
+    b.position.y = waterH(b.userData.bx, b.userData.bz, t) + 0.18;
+    const bn = waterNormal(b.userData.bx, b.userData.bz, t);
+    b.rotation.x = Math.atan2(bn.z, bn.y) * 0.5;
+    b.rotation.z = Math.atan2(bn.x, bn.y) * 0.5;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   CAMERA
+   ═══════════════════════════════════════════════ */
+const camSmooth = { x:0, y:3, z:-6 };
+
+function updateCamera(dt) {
+  let offX, offY, offZ;
+
+  if (S.camMode === 0) { // Third-person
+    offX = 0; offY = 2.2; offZ = -5.0;
+  } else if (S.camMode === 1) { // First-person
+    offX = 0; offY = 0.55; offZ = 0.3;
+  } else { // Orbit
+    S.orbitAngle += dt * 0.25;
+    offX = Math.sin(S.orbitAngle) * 6;
+    offY = 2.5;
+    offZ = Math.cos(S.orbitAngle) * 6;
+  }
+
+  // Rotate offset by heading
+  const cosH = Math.cos(S.heading), sinH = Math.sin(S.heading);
+  const rx = offX * cosH + offZ * sinH;
+  const rz = -offX * sinH + offZ * cosH;
+
+  const tx = S.posX + rx;
+  const ty = S.posY + offY;
+  const tz = S.posZ + rz;
+
+  const lerp = 1 - Math.pow(0.005, dt);
+  camSmooth.x += (tx - camSmooth.x) * lerp;
+  camSmooth.y += (ty - camSmooth.y) * lerp;
+  camSmooth.z += (tz - camSmooth.z) * lerp;
+
+  camera.position.set(camSmooth.x, camSmooth.y, camSmooth.z);
+  camera.lookAt(S.posX, S.posY + 0.4, S.posZ);
+}
+
+/* ═══════════════════════════════════════════════
+   HUD
+   ═══════════════════════════════════════════════ */
+const elSpeed   = () => document.getElementById('speed-val');
+const elHeading = () => document.getElementById('heading-val');
+const elStrokeL = () => document.getElementById('stroke-l');
+const elStrokeR = () => document.getElementById('stroke-r');
+const elDist    = () => document.getElementById('dist-val');
+
+function updateHUD() {
+  const kmh = S.speed * 3.6;
+  elSpeed().textContent   = kmh.toFixed(1);
+  let deg = ((S.heading * 180 / Math.PI) % 360 + 360) % 360;
+  elHeading().textContent = String(Math.round(deg)).padStart(3, '0') + '°';
+  elStrokeL().style.height = (S.lStroke * 100) + '%';
+  elStrokeR().style.height = (S.rStroke * 100) + '%';
+  elDist().textContent     = Math.round(S.dist);
+}
+
+/* ═══════════════════════════════════════════════
+   GAME LOOP
+   ═══════════════════════════════════════════════ */
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t  = clock.getElapsedTime();
+
+  waterMesh.material.uniforms.uTime.value = t;
+
+  if (S.playing && !S.paused) {
+    updatePhysics(dt, t);
+    updateCamera(dt);
+    updateHUD();
+  } else {
+    // Idle camera orbit for menu
+    const ix = Math.sin(t * 0.12) * 8;
+    const iz = Math.cos(t * 0.12) * 8;
+    camera.position.set(ix, 3.5, iz);
+    camera.lookAt(0, 0, 0);
+
+    // Bob buoys even on menu
+    for (const b of buoys) {
+      b.position.y = waterH(b.userData.bx, b.userData.bz, t) + 0.18;
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+
+/* ═══════════════════════════════════════════════
+   INPUT
+   ═══════════════════════════════════════════════ */
+function setupInput() {
+  document.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    switch (e.code) {
+      case 'KeyA':       input.left   = true; break;
+      case 'KeyD':       input.right  = true; break;
+      case 'ArrowLeft':  input.steerL = true; break;
+      case 'ArrowRight': input.steerR = true; break;
+      case 'KeyQ':       input.leanL  = true; break;
+      case 'KeyE':       input.leanR  = true; break;
+      case 'KeyC':       if (S.playing) { S.camMode = (S.camMode + 1) % 3; } break;
+      case 'Escape':     if (S.playing) togglePause(); break;
+    }
+  });
+  document.addEventListener('keyup', e => {
+    switch (e.code) {
+      case 'KeyA':       input.left   = false; break;
+      case 'KeyD':       input.right  = false; break;
+      case 'ArrowLeft':  input.steerL = false; break;
+      case 'ArrowRight': input.steerR = false; break;
+      case 'KeyQ':       input.leanL  = false; break;
+      case 'KeyE':       input.leanR  = false; break;
+    }
+  });
+
+  // Touch
+  const tl = document.getElementById('tl');
+  const tr = document.getElementById('tr');
+  tl.addEventListener('touchstart', e => { e.preventDefault(); input.left  = true; }, { passive:false });
+  tl.addEventListener('touchend',   e => { e.preventDefault(); input.left  = false; }, { passive:false });
+  tr.addEventListener('touchstart', e => { e.preventDefault(); input.right = true; }, { passive:false });
+  tr.addEventListener('touchend',   e => { e.preventDefault(); input.right = false; }, { passive:false });
+}
+
+/* ═══════════════════════════════════════════════
+   MENU / PAUSE
+   ═══════════════════════════════════════════════ */
+function showUI(playing) {
+  document.getElementById('hud').style.display       = playing ? 'block' : 'none';
+  document.getElementById('stroke-box').style.display = playing ? 'flex'  : 'none';
+  document.getElementById('distance-box').style.display = playing ? 'block' : 'none';
+  document.getElementById('toolbar').style.display    = playing ? 'flex'  : 'none';
+  if (isMobile) document.getElementById('touch').style.display = playing ? 'block' : 'none';
+}
+
+function startGame() {
+  S.mode = document.querySelector('input[name="mode"]:checked').value;
+  S.playing = true; S.paused = false;
+  S.posX = 0; S.posZ = 0; S.posY = 0;
+  S.heading = 0; S.speed = 0; S.angVel = 0; S.lean = 0;
+  S.lStroke = 0; S.rStroke = 0; S.paddleAnim = 0;
+  S.dist = 0; S.camMode = 0; S.orbitAngle = 0;
+  camSmooth.x = 0; camSmooth.y = 3; camSmooth.z = -6;
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('pause').style.display = 'none';
+  showUI(true);
+  initAudio();
+}
+
+function togglePause() {
+  S.paused = !S.paused;
+  document.getElementById('pause').style.display = S.paused ? 'flex' : 'none';
+}
+
+function returnToMenu() {
+  S.playing = false; S.paused = false;
+  document.getElementById('pause').style.display = 'none';
+  document.getElementById('menu').style.display  = 'flex';
+  showUI(false);
+}
+
+function setupMenuEvents() {
+  document.getElementById('start-btn').addEventListener('click', startGame);
+  document.getElementById('resume-btn').addEventListener('click', togglePause);
+  document.getElementById('menu-btn').addEventListener('click', returnToMenu);
+  document.getElementById('btn-pause').addEventListener('click', togglePause);
+
+  // Fullscreen
+  document.getElementById('btn-fs').addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+    else document.exitFullscreen();
+  });
+
+  // Mute
+  let muted = false;
+  document.getElementById('btn-mute').addEventListener('click', function() {
+    muted = !muted;
+    this.textContent = muted ? '🔇' : '🔊';
+    if (audioCtx) {
+      if (muted) audioCtx.suspend(); else audioCtx.resume();
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   AUDIO (procedural — no files needed)
+   ═══════════════════════════════════════════════ */
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Gentle ambient wave sound via filtered noise
+    const bufSize = audioCtx.sampleRate * 2;
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 350;
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.12;
+    src.connect(lp).connect(gain).connect(audioCtx.destination);
+    src.start();
+  } catch(_) {}
+}
+
+/* ═══════════════════════════════════════════════
+   RESIZE
+   ═══════════════════════════════════════════════ */
+function onResize() {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+
+/* ═══════════════════════════════════════════════
+   BOOT
+   ═══════════════════════════════════════════════ */
+init();
+</script>
+</body>
+</html>

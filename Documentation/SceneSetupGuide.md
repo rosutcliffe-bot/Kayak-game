@@ -58,7 +58,8 @@ Install URP via **Window → Package Manager** and set the
 
 ### Steps
 1. Create a new scene named `MainMenu`.
-2. Add an empty `Managers` GameObject and attach `GameManager.cs` and `InputManager.cs`.
+2. Add an empty `Managers` GameObject and attach `GameManager.cs`, `InputManager.cs`,
+   and `WebGLInitializer.cs` (from `Scripts/WebGL/`).
 3. Create a **Canvas** (Screen Space – Overlay) and attach `MainMenuManager.cs`.
 4. Wire up all Button/Toggle/Slider references in the inspector.
 5. Set **EventSystem** (created automatically with Canvas).

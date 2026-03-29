@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>{{{ PRODUCT_NAME }}}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1a2a3a;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #e0e8f0;
+    }
+
+    /* ── Loading Screen ── */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0b1a2b 0%, #1a3550 50%, #0d2840 100%);
+      z-index: 100;
+      transition: opacity 0.6s ease;
+    }
+
+    #loading-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #loading-screen h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.3rem;
+      color: #7ec8e3;
+    }
+
+    #loading-screen p.subtitle {
+      font-size: 1rem;
+      color: #9ab8d0;
+      margin-bottom: 2rem;
+    }
+
+    /* Progress bar */
+    .progress-wrap {
+      width: min(360px, 80vw);
+      height: 10px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 5px;
+      overflow: hidden;
+      margin-bottom: 0.6rem;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #3b9fd4, #7ec8e3);
+      border-radius: 5px;
+      transition: width 0.25s ease;
+    }
+
+    #loading-percent {
+      font-size: 0.85rem;
+      color: #7eb8d0;
+    }
+
+    /* ── Game Container ── */
+    #unity-container {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0b1a2b;
+    }
+
+    #unity-canvas {
+      width: 100%;
+      height: 100%;
+      cursor: default;
+    }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+      z-index: 50;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    #toolbar.visible { opacity: 1; }
+
+    .toolbar-btn {
+      width: 38px;
+      height: 38px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(11, 26, 43, 0.75);
+      color: #7ec8e3;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+      transition: background 0.2s;
+    }
+
+    .toolbar-btn:hover { background: rgba(62, 130, 180, 0.5); }
+
+    /* ── Mobile Controls Overlay ── */
+    #mobile-controls {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 140px;
+      z-index: 40;
+      pointer-events: none;
+    }
+
+    .touch-zone {
+      position: absolute;
+      bottom: 20px;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: rgba(126, 200, 227, 0.15);
+      border: 2px solid rgba(126, 200, 227, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      color: rgba(126, 200, 227, 0.7);
+      pointer-events: auto;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .touch-zone:active { background: rgba(126, 200, 227, 0.35); }
+
+    #touch-left   { left: 20px; }
+    #touch-right  { right: 20px; }
+    #touch-steer  { left: 50%; transform: translateX(-50%); width: 140px; border-radius: 16px; height: 60px; bottom: 44px; }
+
+    /* ── Warning overlay ── */
+    #warning-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 26, 43, 0.92);
+      z-index: 200;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    #warning-overlay h2 { font-size: 1.4rem; margin-bottom: 0.8rem; color: #e8a84c; }
+    #warning-overlay p  { max-width: 420px; line-height: 1.6; color: #b0c4d8; }
+
+    #warning-overlay button {
+      margin-top: 1.5rem;
+      padding: 0.6rem 1.8rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      background: #3b9fd4;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      #loading-screen h1 { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <h1>🛶 Kayak Simulator</h1>
+    <p class="subtitle">Loading — please wait…</p>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <span id="loading-percent">0 %</span>
+  </div>
+
+  <!-- Unity Container -->
+  <div id="unity-container">
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+  </div>
+
+  <!-- Toolbar (shown after load) -->
+  <div id="toolbar">
+    <button class="toolbar-btn" id="btn-fullscreen" title="Toggle fullscreen">⛶</button>
+    <button class="toolbar-btn" id="btn-mute" title="Toggle audio">🔊</button>
+  </div>
+
+  <!-- Mobile Touch Controls -->
+  <div id="mobile-controls">
+    <div class="touch-zone" id="touch-left">Left<br>Paddle</div>
+    <div class="touch-zone" id="touch-steer">◀ Steer ▶</div>
+    <div class="touch-zone" id="touch-right">Right<br>Paddle</div>
+  </div>
+
+  <!-- WebGL not supported warning -->
+  <div id="warning-overlay">
+    <h2>⚠️ WebGL Not Supported</h2>
+    <p>Your browser does not appear to support WebGL 2.0, which is required to run Kayak Simulator. Please try a modern browser such as Chrome, Firefox, or Edge.</p>
+    <button onclick="document.getElementById('warning-overlay').style.display='none'">Dismiss</button>
+  </div>
+
+  <script>
+    // ────────────────────────────────────────────
+    // Helpers
+    // ────────────────────────────────────────────
+    var isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+
+    function checkWebGL () {
+      try {
+        var c = document.createElement('canvas');
+        return !!(c.getContext('webgl2') || c.getContext('webgl'));
+      } catch (e) { return false; }
+    }
+
+    if (!checkWebGL()) {
+      document.getElementById('warning-overlay').style.display = 'flex';
+    }
+
+    // ────────────────────────────────────────────
+    // Unity loader
+    // ────────────────────────────────────────────
+    var buildUrl      = "Build";
+    var loaderUrl     = buildUrl + "/{{{ LOADER_FILENAME }}}";
+    var config = {
+      dataUrl:       buildUrl + "/{{{ DATA_FILENAME }}}",
+      frameworkUrl:   buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+      codeUrl:       buildUrl + "/{{{ CODE_FILENAME }}}",
+#if MEMORY_FILENAME
+      memoryUrl:     buildUrl + "/{{{ MEMORY_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+      symbolsUrl:    buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+#endif
+      streamingAssetsUrl: "StreamingAssets",
+      companyName:   "{{{ COMPANY_NAME }}}",
+      productName:   "{{{ PRODUCT_NAME }}}",
+      productVersion: "{{{ PRODUCT_VERSION }}}",
+    };
+
+    var progressBar   = document.getElementById('progress-bar');
+    var loadingPct    = document.getElementById('loading-percent');
+    var loadingScreen = document.getElementById('loading-screen');
+    var canvas        = document.getElementById('unity-canvas');
+    var toolbar       = document.getElementById('toolbar');
+
+    var unityInstance = null;
+
+    var script  = document.createElement('script');
+    script.src  = loaderUrl;
+    script.onload = function () {
+      createUnityInstance(canvas, config, function (progress) {
+        var pct = Math.round(progress * 100);
+        progressBar.style.width = pct + '%';
+        loadingPct.textContent  = pct + ' %';
+      }).then(function (instance) {
+        unityInstance = instance;
+
+        // Hide loading screen
+        loadingScreen.classList.add('hidden');
+        setTimeout(function () { loadingScreen.style.display = 'none'; }, 700);
+
+        // Show toolbar
+        toolbar.classList.add('visible');
+
+        // Show mobile controls on touch devices
+        if (isMobile) {
+          document.getElementById('mobile-controls').style.display = 'block';
+        }
+      }).catch(function (message) {
+        alert('Unity WebGL build failed to load:\n' + message);
+      });
+    };
+    document.body.appendChild(script);
+
+    // ────────────────────────────────────────────
+    // Fullscreen toggle
+    // ────────────────────────────────────────────
+    document.getElementById('btn-fullscreen').addEventListener('click', function () {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(function () {});
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    // ────────────────────────────────────────────
+    // Mute toggle
+    // ────────────────────────────────────────────
+    var muted = false;
+    document.getElementById('btn-mute').addEventListener('click', function () {
+      muted = !muted;
+      this.textContent = muted ? '🔇' : '🔊';
+      if (unityInstance) {
+        unityInstance.SendMessage('WebGLBridge', 'SetMuted', muted ? 1 : 0);
+      }
+    });
+
+    // ────────────────────────────────────────────
+    // Mobile touch → key simulation
+    // ────────────────────────────────────────────
+    function simulateKey (code, type) {
+      canvas.dispatchEvent(new KeyboardEvent(type, {
+        key: code, code: code, bubbles: true, cancelable: true
+      }));
+    }
+
+    function bindTouch (elementId, keyCode) {
+      var el = document.getElementById(elementId);
+      if (!el) return;
+      el.addEventListener('touchstart', function (e) {
+        e.preventDefault();
+        simulateKey(keyCode, 'keydown');
+      }, { passive: false });
+      el.addEventListener('touchend', function (e) {
+        e.preventDefault();
+        simulateKey(keyCode, 'keyup');
+      }, { passive: false });
+    }
+
+    bindTouch('touch-left',  'KeyA');
+    bindTouch('touch-right', 'KeyD');
+
+    // Steer zone: swipe left/right
+    (function () {
+      var steer   = document.getElementById('touch-steer');
+      var startX  = 0;
+      var steering = null;
+
+      if (!steer) return;
+
+      steer.addEventListener('touchstart', function (e) {
+        e.preventDefault();
+        startX = e.touches[0].clientX;
+      }, { passive: false });
+
+      steer.addEventListener('touchmove', function (e) {
+        e.preventDefault();
+        var dx = e.touches[0].clientX - startX;
+        if (Math.abs(dx) > 15) {
+          var dir = dx > 0 ? 'ArrowRight' : 'ArrowLeft';
+          if (steering !== dir) {
+            if (steering) simulateKey(steering, 'keyup');
+            simulateKey(dir, 'keydown');
+            steering = dir;
+          }
+        }
+      }, { passive: false });
+
+      steer.addEventListener('touchend', function (e) {
+        e.preventDefault();
+        if (steering) {
+          simulateKey(steering, 'keyup');
+          steering = null;
+        }
+      }, { passive: false });
+    })();
+
+    // ────────────────────────────────────────────
+    // Responsive canvas
+    // ────────────────────────────────────────────
+    function resizeCanvas () {
+      canvas.style.width  = window.innerWidth  + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+  </script>
+</body>
+</html>

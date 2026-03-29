@@ -1,0 +1,39 @@
+# Unity generated
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+AssetStoreTools*
+
+# IDE
+.vs/
+.vscode/
+*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.userprefs
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build output
+WebGLBuild/
+
+# Dependencies (use CDN in production)
+node_modules/
+package.json
+package-lock.json

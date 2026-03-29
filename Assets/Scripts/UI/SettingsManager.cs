@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using KayakSimulator.WebGL;
 
 namespace KayakSimulator.UI
 {
@@ -91,6 +92,9 @@ namespace KayakSimulator.UI
         {
             PlayerPrefs.SetFloat(key, value);
             PlayerPrefs.Save();
+#if UNITY_WEBGL && !UNITY_EDITOR
+            WebGL.WebGLBridge.SyncFiles();
+#endif
         }
 
         // ---------------------------------------------------------------
