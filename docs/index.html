@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Kayak Simulator</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:#0a1929;color:#e0e8f0;}
+canvas{display:block;}
+#game-container{position:relative;width:100%;height:100%;}
+
+/* ── Shared UI Overlay ────────────────────────────────────────── */
+.overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;z-index:100;pointer-events:none;transition:opacity 0.4s ease;}
+.overlay.hidden{opacity:0;pointer-events:none!important;}
+.overlay.visible{opacity:1;pointer-events:auto;}
+.panel{background:rgba(10,25,50,0.92);border:1px solid rgba(100,180,255,0.25);border-radius:16px;padding:40px 48px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);text-align:center;max-width:480px;width:90%;pointer-events:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+.panel h1{font-size:2.4em;font-weight:300;letter-spacing:4px;text-transform:uppercase;margin-bottom:8px;background:linear-gradient(135deg,#4fc3f7,#81d4fa,#b3e5fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.panel h2{font-size:1.5em;font-weight:300;letter-spacing:2px;margin-bottom:24px;color:#81d4fa;}
+.panel .subtitle{font-size:0.95em;color:#7eaacc;margin-bottom:32px;}
+
+/* Buttons */
+.btn{display:block;width:100%;padding:14px 0;margin:10px 0;border:1px solid rgba(79,195,247,0.4);border-radius:8px;background:rgba(79,195,247,0.08);color:#b3e5fc;font-size:1.05em;letter-spacing:1px;cursor:pointer;transition:all 0.25s ease;font-family:inherit;}
+.btn:hover{background:rgba(79,195,247,0.22);border-color:#4fc3f7;color:#fff;transform:translateY(-1px);box-shadow:0 4px 16px rgba(79,195,247,0.2);}
+.btn.primary{background:rgba(79,195,247,0.18);border-color:#4fc3f7;color:#e1f5fe;font-size:1.15em;padding:16px 0;}
+
+/* Toggle group */
+.toggle-group{display:flex;gap:8px;margin:16px 0 24px;}
+.toggle-btn{flex:1;padding:10px 0;border:1px solid rgba(100,180,255,0.3);border-radius:6px;background:transparent;color:#7eaacc;cursor:pointer;transition:all 0.2s ease;font-family:inherit;font-size:0.95em;}
+.toggle-btn.active{background:rgba(79,195,247,0.2);border-color:#4fc3f7;color:#e1f5fe;}
+
+/* Settings */
+.setting-row{display:flex;align-items:center;justify-content:space-between;margin:14px 0;gap:12px;}
+.setting-row label{color:#90caf9;font-size:0.9em;min-width:100px;text-align:left;}
+.setting-row input[type="range"]{flex:1;accent-color:#4fc3f7;height:4px;}
+.setting-row .val{color:#b3e5fc;font-size:0.85em;min-width:40px;text-align:right;}
+.setting-row select{background:#0d2137;color:#b3e5fc;border:1px solid rgba(79,195,247,0.3);border-radius:4px;padding:6px 10px;font-family:inherit;font-size:0.9em;}
+
+/* Instructions */
+.instructions{text-align:left;margin:16px 0;font-size:0.85em;color:#7eaacc;line-height:1.7;}
+.instructions kbd{background:rgba(79,195,247,0.15);border:1px solid rgba(79,195,247,0.3);border-radius:3px;padding:2px 6px;font-family:monospace;font-size:0.9em;color:#b3e5fc;}
+
+/* ── HUD ──────────────────────────────────────────────────────── */
+#hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50;transition:opacity 0.3s;}
+#hud.hidden{opacity:0;}
+
+#speed-display{position:absolute;top:20px;left:50%;transform:translateX(-50%);font-size:2em;font-weight:200;letter-spacing:2px;color:#e1f5fe;text-shadow:0 2px 8px rgba(0,0,0,0.5);}
+#speed-display .unit{font-size:0.5em;color:#7eaacc;margin-left:4px;}
+
+#compass{position:absolute;top:20px;right:20px;font-size:1.2em;color:#81d4fa;text-shadow:0 2px 8px rgba(0,0,0,0.5);}
+
+/* Stroke bars */
+.stroke-bar-container{position:absolute;bottom:30%;width:8px;height:120px;background:rgba(10,25,50,0.6);border-radius:4px;border:1px solid rgba(79,195,247,0.2);}
+.stroke-bar-container.left{left:20px;}
+.stroke-bar-container.right{right:20px;}
+.stroke-bar{position:absolute;bottom:0;width:100%;border-radius:3px;transition:height 0.08s ease;}
+.stroke-bar-container.left .stroke-bar{background:linear-gradient(to top,#4fc3f7,#81d4fa);}
+.stroke-bar-container.right .stroke-bar{background:linear-gradient(to top,#4fc3f7,#81d4fa);}
+.stroke-label{position:absolute;bottom:-20px;width:100%;text-align:center;font-size:0.7em;color:#7eaacc;}
+
+#distance-display{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);font-size:0.95em;color:#7eaacc;text-shadow:0 2px 8px rgba(0,0,0,0.5);}
+
+#camera-mode{position:absolute;top:20px;left:20px;font-size:0.85em;color:#5c9ab8;text-shadow:0 2px 8px rgba(0,0,0,0.5);}
+
+/* Controls hint */
+#controls-hint{position:absolute;bottom:20px;right:20px;font-size:0.75em;color:rgba(126,170,204,0.6);text-align:right;line-height:1.6;}
+
+/* ── Mobile Touch Controls ────────────────────────────────────── */
+#touch-controls{position:absolute;bottom:0;left:0;width:100%;height:180px;display:none;pointer-events:auto;z-index:60;}
+.touch-btn{position:absolute;width:80px;height:80px;border-radius:50%;background:rgba(79,195,247,0.15);border:2px solid rgba(79,195,247,0.4);display:flex;align-items:center;justify-content:center;font-size:0.8em;color:#b3e5fc;user-select:none;-webkit-user-select:none;touch-action:none;}
+.touch-btn:active{background:rgba(79,195,247,0.35);border-color:#4fc3f7;}
+#touch-left{bottom:40px;left:30px;}
+#touch-right{bottom:40px;right:30px;}
+#touch-cam{bottom:130px;right:30px;width:50px;height:50px;font-size:0.7em;}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media(max-width:600px){
+  .panel{padding:24px 20px;}
+  .panel h1{font-size:1.6em;}
+  #touch-controls{display:flex!important;}
+}
+@media(hover:none)and(pointer:coarse){
+  #touch-controls{display:flex!important;}
+}
+</style>
+</head>
+<body>
+<div id="game-container">
+
+<!-- ── MAIN MENU ──────────────────────────────────────────────── -->
+<div id="main-menu" class="overlay visible">
+<div class="panel">
+  <h1>Kayak Simulator</h1>
+  <p class="subtitle">Navigate the open ocean with realistic paddle physics</p>
+  <button class="btn primary" id="btn-start">Start Paddling</button>
+  <div class="toggle-group">
+    <button class="toggle-btn active" id="btn-arcade">Arcade</button>
+    <button class="toggle-btn" id="btn-simulation">Simulation</button>
+  </div>
+  <button class="btn" id="btn-instructions-show">How to Play</button>
+  <button class="btn" id="btn-settings-main">Settings</button>
+  <div id="instructions-block" class="instructions" style="display:none;">
+    <p><kbd>A</kbd> Left paddle &nbsp; <kbd>D</kbd> Right paddle</p>
+    <p><kbd>←</kbd><kbd>→</kbd> Steer (arcade) &nbsp; <kbd>Q</kbd><kbd>E</kbd> Lean</p>
+    <p><kbd>C</kbd> Switch camera &nbsp; <kbd>Esc</kbd> Pause</p>
+    <p>On mobile: use on-screen buttons</p>
+  </div>
+  <p style="margin-top:18px;font-size:0.75em;color:#4a7a9a;">v1.0.0</p>
+</div>
+</div>
+
+<!-- ── PAUSE MENU ─────────────────────────────────────────────── -->
+<div id="pause-menu" class="overlay hidden">
+<div class="panel">
+  <h2>Paused</h2>
+  <button class="btn primary" id="btn-resume">Resume</button>
+  <button class="btn" id="btn-settings-pause">Settings</button>
+  <button class="btn" id="btn-mainmenu">Main Menu</button>
+</div>
+</div>
+
+<!-- ── SETTINGS PANEL ─────────────────────────────────────────── -->
+<div id="settings-menu" class="overlay hidden">
+<div class="panel">
+  <h2>Settings</h2>
+  <div class="setting-row"><label>Master Volume</label><input type="range" id="sl-master" min="0" max="1" step="0.01" value="1"><span class="val" id="val-master">100%</span></div>
+  <div class="setting-row"><label>Music Volume</label><input type="range" id="sl-music" min="0" max="1" step="0.01" value="0.7"><span class="val" id="val-music">70%</span></div>
+  <div class="setting-row"><label>SFX Volume</label><input type="range" id="sl-sfx" min="0" max="1" step="0.01" value="0.8"><span class="val" id="val-sfx">80%</span></div>
+  <div class="setting-row"><label>Graphics</label>
+    <select id="sel-quality"><option value="0">Low</option><option value="1" selected>Medium</option><option value="2">High</option></select>
+  </div>
+  <button class="btn" id="btn-settings-back">Back</button>
+</div>
+</div>
+
+<!-- ── HUD ─────────────────────────────────────────────────────── -->
+<div id="hud" class="hidden">
+  <div id="speed-display">0.0<span class="unit">km/h</span></div>
+  <div id="compass">000°</div>
+  <div id="camera-mode">Third Person</div>
+  <div class="stroke-bar-container left"><div class="stroke-bar" id="bar-left" style="height:0%"></div><span class="stroke-label">L</span></div>
+  <div class="stroke-bar-container right"><div class="stroke-bar" id="bar-right" style="height:0%"></div><span class="stroke-label">R</span></div>
+  <div id="distance-display">0 m traveled</div>
+  <div id="controls-hint">A/D - Paddle &nbsp; ←/→ - Steer<br>C - Camera &nbsp; Esc - Pause</div>
+</div>
+
+<!-- ── TOUCH CONTROLS ─────────────────────────────────────────── -->
+<div id="touch-controls">
+  <div class="touch-btn" id="touch-left">L<br>Paddle</div>
+  <div class="touch-btn" id="touch-right">R<br>Paddle</div>
+  <div class="touch-btn" id="touch-cam">CAM</div>
+</div>
+
+</div><!-- /game-container -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+/* ═══════════════════════════════════════════════════════════════════
+   KAYAK SIMULATOR — Single-file Three.js web game
+   Faithfully recreates the Unity C# kayak simulator
+   ═══════════════════════════════════════════════════════════════════ */
+
+// ── Constants matching C# codebase ───────────────────────────────
+const GRAVITY = 9.81;
+const WATER_DENSITY = 1025; // kg/m³ seawater
+const PADDLE_FORCE = 120;   // N
+const YAW_TORQUE = 60;      // N·m
+const MAX_SPEED = 6;        // m/s
+const STROKE_RAMP_TIME = 0.15;  // s
+const STROKE_DECAY_TIME = 0.25; // s
+const ARCADE_STEER_TORQUE = 80; // N·m
+const CAPSIZE_ANGLE = 45;    // degrees
+const RIGHTING_TORQUE = 200;  // N·m
+const LATERAL_DAMPING = 800;  // N
+const WATER_LINEAR_DRAG = 1.5;
+const WATER_ANGULAR_DRAG = 2.0;
+const DISPLACED_VOLUME_PER_POINT = 0.04; // m³
+const WATER_CURRENT = new THREE.Vector3(0.3, 0, 0);
+
+// Buoyancy sample points (local space)
+const BUOYANCY_POINTS = [
+  new THREE.Vector3(0, 0, 1.8),    // bow
+  new THREE.Vector3(0, 0, -1.8),   // stern
+  new THREE.Vector3(-0.3, 0, 0),   // port
+  new THREE.Vector3(0.3, 0, 0),    // starboard
+  new THREE.Vector3(0, 0, 0),      // center
+];
+
+// Camera presets
+const CAM = {
+  thirdPerson: { offset: new THREE.Vector3(0, 2.5, -5), fov: 65 },
+  firstPerson: { offset: new THREE.Vector3(0, 0.9, 0.2), fov: 75 },
+  orbital: { radius: 8, height: 3, speed: 20, fov: 55 },
+  posSmooth: 0.15,
+  rotSmooth: 0.1,
+  fovSmooth: 0.3,
+};
+
+// Wave descriptors matching GerstnerWaveSystem.cs
+const WAVE_DESCRIPTORS = [
+  { dir: [1.0, 0.3],  amp: 0.4,  wavelength: 25, speed: 3.0, steepness: 0.5 },
+  { dir: [0.8, 1.0],  amp: 0.25, wavelength: 15, speed: 2.5, steepness: 0.4 },
+  { dir: [0.2, 1.0],  amp: 0.15, wavelength: 8,  speed: 1.5, steepness: 0.3 },
+  { dir: [1.0, -0.5], amp: 0.1,  wavelength: 5,  speed: 1.0, steepness: 0.2 },
+];
+
+// Normalize wave directions
+WAVE_DESCRIPTORS.forEach(w => {
+  const len = Math.sqrt(w.dir[0]*w.dir[0] + w.dir[1]*w.dir[1]);
+  w.dir[0] /= len; w.dir[1] /= len;
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   GAME STATE & MANAGERS
+   ═══════════════════════════════════════════════════════════════════ */
+const GameState = { MainMenu: 0, Playing: 1, Paused: 2 };
+let gameState = GameState.MainMenu;
+let simulationMode = 'arcade'; // 'arcade' | 'simulation'
+let elapsedTime = 0;
+let distanceTraveled = 0;
+let lastKayakPos = new THREE.Vector3();
+
+// Settings
+let settings = {
+  masterVolume: 1.0,
+  musicVolume: 0.7,
+  sfxVolume: 0.8,
+  quality: 1,
+};
+
+// ── DOM references ───────────────────────────────────────────────
+const $mainMenu = document.getElementById('main-menu');
+const $pauseMenu = document.getElementById('pause-menu');
+const $settingsMenu = document.getElementById('settings-menu');
+const $hud = document.getElementById('hud');
+const $speed = document.getElementById('speed-display');
+const $compass = document.getElementById('compass');
+const $camMode = document.getElementById('camera-mode');
+const $barLeft = document.getElementById('bar-left');
+const $barRight = document.getElementById('bar-right');
+const $distance = document.getElementById('distance-display');
+let settingsReturnTo = 'main'; // 'main' | 'pause'
+
+/* ═══════════════════════════════════════════════════════════════════
+   GERSTNER WAVE SYSTEM (CPU side, matching GerstnerWaveSystem.cs)
+   ═══════════════════════════════════════════════════════════════════ */
+const Waves = {
+  getDisplacement(x, z, t) {
+    let dx = 0, dy = 0, dz = 0;
+    const N = WAVE_DESCRIPTORS.length;
+    for (let i = 0; i < N; i++) {
+      const w = WAVE_DESCRIPTORS[i];
+      const k = (2 * Math.PI) / w.wavelength;
+      const omega = Math.sqrt(GRAVITY * k);
+      const phase = k * (w.dir[0] * x + w.dir[1] * z) - omega * t * w.speed;
+      const sinP = Math.sin(phase);
+      const cosP = Math.cos(phase);
+      const Qi = w.steepness / (k * w.amp * N);
+      dx += Qi * w.amp * w.dir[0] * cosP;
+      dz += Qi * w.amp * w.dir[1] * cosP;
+      dy += w.amp * sinP;
+    }
+    return { x: dx, y: dy, z: dz };
+  },
+
+  getHeight(x, z, t) {
+    let dy = 0;
+    const N = WAVE_DESCRIPTORS.length;
+    for (let i = 0; i < N; i++) {
+      const w = WAVE_DESCRIPTORS[i];
+      const k = (2 * Math.PI) / w.wavelength;
+      const omega = Math.sqrt(GRAVITY * k);
+      const phase = k * (w.dir[0] * x + w.dir[1] * z) - omega * t * w.speed;
+      dy += w.amp * Math.sin(phase);
+    }
+    return dy;
+  },
+
+  getNormal(x, z, t, eps) {
+    eps = eps || 0.1;
+    const hC = this.getHeight(x, z, t);
+    const hR = this.getHeight(x + eps, z, t);
+    const hF = this.getHeight(x, z + eps, t);
+    const dx = (hR - hC) / eps;
+    const dz = (hF - hC) / eps;
+    const n = new THREE.Vector3(-dx, 1, -dz);
+    n.normalize();
+    return n;
+  },
+
+  getWaterVelocity(pos, t) {
+    const eps = 0.3;
+    const hC = this.getHeight(pos.x, pos.z, t);
+    const hR = this.getHeight(pos.x + eps, pos.z, t);
+    const hF = this.getHeight(pos.x, pos.z + eps, t);
+    const orbX = ((hR - hC) / eps) * 2.0;
+    const orbZ = ((hF - hC) / eps) * 2.0;
+    // Turbulence (simplified Perlin-like)
+    const tf = 0.4;
+    const ts = 15;
+    const tx = (Math.sin(pos.x * 0.1 + t * tf) * 0.5) * ts;
+    const tz = (Math.cos(pos.z * 0.1 + t * tf + 100) * 0.5) * ts;
+    return new THREE.Vector3(
+      WATER_CURRENT.x + orbX + tx * 0.02,
+      0,
+      WATER_CURRENT.z + orbZ + tz * 0.02
+    );
+  }
+};
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   INPUT MANAGER (matching InputManager.cs)
+   ═══════════════════════════════════════════════════════════════════ */
+const Input = {
+  leftPaddle: 0, rightPaddle: 0,
+  steerAxis: 0, leanAxis: 0,
+  pausePressed: false, cameraSwitchPressed: false,
+  _keys: {},
+  _touchLeft: false, _touchRight: false,
+
+  init() {
+    window.addEventListener('keydown', e => { this._keys[e.code] = true; });
+    window.addEventListener('keyup', e => { this._keys[e.code] = false; });
+
+    // Touch controls
+    const setupTouch = (id, field) => {
+      const el = document.getElementById(id);
+      el.addEventListener('touchstart', e => { e.preventDefault(); this[field] = true; }, {passive:false});
+      el.addEventListener('touchend', e => { e.preventDefault(); this[field] = false; }, {passive:false});
+      el.addEventListener('touchcancel', e => { this[field] = false; });
+      el.addEventListener('mousedown', e => { this[field] = true; });
+      el.addEventListener('mouseup', e => { this[field] = false; });
+    };
+    setupTouch('touch-left', '_touchLeft');
+    setupTouch('touch-right', '_touchRight');
+    document.getElementById('touch-cam').addEventListener('touchstart', e => {
+      e.preventDefault(); this.cameraSwitchPressed = true;
+    }, {passive:false});
+    document.getElementById('touch-cam').addEventListener('mousedown', () => {
+      this.cameraSwitchPressed = true;
+    });
+  },
+
+  update() {
+    // Paddle inputs (binary keyboard + touch)
+    this.leftPaddle = (this._keys['KeyA'] || this._touchLeft) ? 1 : 0;
+    this.rightPaddle = (this._keys['KeyD'] || this._touchRight) ? 1 : 0;
+
+    // Steer (arrow keys)
+    this.steerAxis = 0;
+    if (this._keys['ArrowLeft']) this.steerAxis -= 1;
+    if (this._keys['ArrowRight']) this.steerAxis += 1;
+
+    // Lean
+    this.leanAxis = 0;
+    if (this._keys['KeyQ']) this.leanAxis -= 1;
+    if (this._keys['KeyE']) this.leanAxis += 1;
+
+    // One-shot inputs
+    this.pausePressed = false;
+    this.cameraSwitchPressed = false;
+  },
+
+  consumeKeyDown(code) {
+    if (this._keys[code]) {
+      this._keys[code] = false;
+      return true;
+    }
+    return false;
+  }
+};
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   THREE.JS SCENE SETUP
+   ═══════════════════════════════════════════════════════════════════ */
+let renderer, scene, camera;
+let kayakGroup, paddleGroup, paddlePivot;
+let waterMesh, skyDome;
+let buoys = [];
+let splashParticles = [], wakeParticles;
+let clock;
+
+function initScene() {
+  clock = new THREE.Clock();
+  renderer = new THREE.WebGLRenderer({ antialias: settings.quality >= 1, alpha: false });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.quality >= 2 ? 2 : 1.5));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  document.getElementById('game-container').prepend(renderer.domElement);
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x1a3a5c, 0.008);
+
+  camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 5, -10);
+
+  // Lighting
+  const ambientLight = new THREE.AmbientLight(0x4488aa, 0.5);
+  scene.add(ambientLight);
+
+  const sunLight = new THREE.DirectionalLight(0xffeedd, 1.2);
+  sunLight.position.set(50, 80, 30);
+  scene.add(sunLight);
+
+  const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x1a3a5c, 0.4);
+  scene.add(hemiLight);
+
+  // Sky dome
+  createSky();
+
+  // Water
+  createWater();
+
+  // Kayak
+  createKayak();
+
+  // Buoys
+  createBuoys();
+
+  // Particles
+  createParticles();
+
+  // Handle resize
+  window.addEventListener('resize', onResize);
+}
+
+function onResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   GLSL WATER SHADERS
+   ═══════════════════════════════════════════════════════════════════ */
+const waterVertexShader = `
+  precision highp float;
+
+  uniform float uTime;
+  uniform vec4 uWaveA[4]; // dir.x, dir.y, amplitude, wavelength
+  uniform vec4 uWaveB[4]; // speed, steepness, 0, 0
+  uniform int uWaveCount;
+
+  varying vec3 vWorldPos;
+  varying vec3 vNormal;
+  varying float vFoam;
+  varying vec2 vUv;
+
+  vec3 gerstnerWave(vec4 wA, vec4 wB, vec3 p, inout vec3 tangent, inout vec3 binormal) {
+    float amp = wA.z;
+    float wavelength = wA.w;
+    float spd = wB.x;
+    float steep = wB.y;
+
+    float k = 6.28318 / wavelength;
+    float omega = sqrt(9.81 * k);
+    vec2 d = normalize(wA.xy);
+    float Qi = steep / (k * amp * float(uWaveCount));
+
+    float phase = k * (d.x * p.x + d.y * p.z) - omega * uTime * spd;
+    float S = sin(phase);
+    float C = cos(phase);
+
+    tangent += vec3(
+      -d.x * d.x * Qi * amp * k * S,
+       d.x * Qi * amp * k * C,
+      -d.x * d.y * Qi * amp * k * S
+    );
+    binormal += vec3(
+      -d.x * d.y * Qi * amp * k * S,
+       d.y * Qi * amp * k * C,
+      -d.y * d.y * Qi * amp * k * S
+    );
+
+    return vec3(
+      Qi * amp * d.x * C,
+      amp * S,
+      Qi * amp * d.y * C
+    );
+  }
+
+  void main() {
+    vUv = uv;
+    vec3 pos = position;
+    vec3 tangent = vec3(1.0, 0.0, 0.0);
+    vec3 binormal = vec3(0.0, 0.0, 1.0);
+
+    vec3 displacement = vec3(0.0);
+    for (int i = 0; i < 4; i++) {
+      if (i >= uWaveCount) break;
+      displacement += gerstnerWave(uWaveA[i], uWaveB[i], pos, tangent, binormal);
+    }
+    pos += displacement;
+
+    // Foam factor based on vertical displacement
+    float heightRatio = displacement.y / (uWaveA[0].z + uWaveA[1].z + 0.01);
+    vFoam = smoothstep(0.5, 1.0, heightRatio);
+
+    vec3 normal = normalize(cross(binormal, tangent));
+    vNormal = normalize(normalMatrix * normal);
+    vWorldPos = (modelMatrix * vec4(pos, 1.0)).xyz;
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+  }
+`;
+
+const waterFragmentShader = `
+  precision highp float;
+
+  uniform float uTime;
+  uniform vec3 uSunDir;
+  uniform vec3 uCameraPos;
+  uniform vec3 uDeepColor;
+  uniform vec3 uShallowColor;
+  uniform vec3 uFoamColor;
+  uniform float uOpacity;
+
+  varying vec3 vWorldPos;
+  varying vec3 vNormal;
+  varying float vFoam;
+  varying vec2 vUv;
+
+  // Animated normal perturbation (fake normal map)
+  vec3 perturbNormal(vec3 N) {
+    float s1 = sin(vWorldPos.x * 0.8 + uTime * 1.2) * cos(vWorldPos.z * 0.6 + uTime * 0.9);
+    float s2 = sin(vWorldPos.x * 1.5 - uTime * 0.7) * cos(vWorldPos.z * 1.2 + uTime * 1.1);
+    float s3 = sin(vWorldPos.x * 0.3 + vWorldPos.z * 0.5 + uTime * 0.5);
+    vec3 perturb = vec3(s1 * 0.03 + s2 * 0.02, 0.0, s3 * 0.03 + s2 * 0.015);
+    return normalize(N + perturb);
+  }
+
+  void main() {
+    vec3 N = perturbNormal(vNormal);
+    vec3 V = normalize(uCameraPos - vWorldPos);
+    vec3 L = normalize(uSunDir);
+
+    // Depth-based color (based on wave height / world Y)
+    float depthFactor = smoothstep(-2.0, 1.5, vWorldPos.y);
+    vec3 baseColor = mix(uDeepColor, uShallowColor, depthFactor);
+
+    // Fresnel effect
+    float fresnel = pow(1.0 - max(dot(N, V), 0.0), 4.0);
+    fresnel = clamp(fresnel, 0.0, 1.0);
+    vec3 skyReflect = vec3(0.45, 0.65, 0.85);
+    baseColor = mix(baseColor, skyReflect, fresnel * 0.6);
+
+    // Specular (sun reflection on water)
+    vec3 H = normalize(L + V);
+    float spec = pow(max(dot(N, H), 0.0), 256.0);
+    vec3 specular = vec3(1.0, 0.95, 0.85) * spec * 1.5;
+
+    // Secondary broader specular
+    float spec2 = pow(max(dot(N, H), 0.0), 32.0);
+    specular += vec3(0.8, 0.85, 0.9) * spec2 * 0.15;
+
+    // Foam at crests
+    vec3 foamMix = mix(baseColor, uFoamColor, vFoam * 0.7);
+
+    // Subsurface scattering approximation
+    float sss = pow(max(dot(V, -L), 0.0), 3.0) * 0.15;
+    vec3 sssColor = vec3(0.0, 0.6, 0.5) * sss;
+
+    vec3 finalColor = foamMix + specular + sssColor;
+
+    gl_FragColor = vec4(finalColor, uOpacity - fresnel * 0.1);
+  }
+`;
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   CREATE SKY
+   ═══════════════════════════════════════════════════════════════════ */
+function createSky() {
+  const skyGeo = new THREE.SphereGeometry(400, 32, 32);
+  const skyMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `
+      varying vec3 vWorldPos;
+      void main() {
+        vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      varying vec3 vWorldPos;
+      void main() {
+        float y = normalize(vWorldPos).y;
+        // Dawn/dusk gradient
+        vec3 zenith = vec3(0.15, 0.3, 0.55);
+        vec3 horizon = vec3(0.8, 0.55, 0.35);
+        vec3 nadir = vec3(0.05, 0.1, 0.2);
+        vec3 col;
+        if (y > 0.0) {
+          col = mix(horizon, zenith, pow(y, 0.6));
+        } else {
+          col = mix(horizon, nadir, pow(-y, 0.4));
+        }
+        // Sun glow
+        vec3 sunDir = normalize(vec3(0.6, 0.25, 0.4));
+        float sunDot = max(dot(normalize(vWorldPos), sunDir), 0.0);
+        col += vec3(1.0, 0.7, 0.3) * pow(sunDot, 64.0) * 2.0;
+        col += vec3(0.8, 0.5, 0.2) * pow(sunDot, 8.0) * 0.3;
+        // Subtle cloud-like wisps
+        float cloud = sin(vWorldPos.x * 0.01 + uTime * 0.02) *
+                      cos(vWorldPos.z * 0.015 + uTime * 0.015) * 0.5 + 0.5;
+        cloud *= smoothstep(0.0, 0.4, y);
+        col += vec3(0.9, 0.85, 0.8) * cloud * 0.08;
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+    side: THREE.BackSide,
+    depthWrite: false,
+  });
+  skyDome = new THREE.Mesh(skyGeo, skyMat);
+  scene.add(skyDome);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   CREATE WATER SURFACE
+   ═══════════════════════════════════════════════════════════════════ */
+function createWater() {
+  const size = 200;
+  const res = settings.quality >= 2 ? 128 : (settings.quality >= 1 ? 80 : 48);
+  const geo = new THREE.PlaneGeometry(size, size, res, res);
+  geo.rotateX(-Math.PI / 2);
+
+  // Pack wave data for shader
+  const waveA = [], waveB = [];
+  for (let i = 0; i < 4; i++) {
+    const w = WAVE_DESCRIPTORS[i];
+    waveA.push(new THREE.Vector4(w.dir[0], w.dir[1], w.amp, w.wavelength));
+    waveB.push(new THREE.Vector4(w.speed, w.steepness, 0, 0));
+  }
+
+  const waterUniforms = {
+    uTime: { value: 0 },
+    uWaveA: { value: waveA },
+    uWaveB: { value: waveB },
+    uWaveCount: { value: 4 },
+    uSunDir: { value: new THREE.Vector3(0.6, 0.25, 0.4).normalize() },
+    uCameraPos: { value: new THREE.Vector3() },
+    uDeepColor: { value: new THREE.Color(0x0a2a4a) },
+    uShallowColor: { value: new THREE.Color(0x1a8a8a) },
+    uFoamColor: { value: new THREE.Color(0xddeeff) },
+    uOpacity: { value: 0.88 },
+  };
+
+  const waterMat = new THREE.ShaderMaterial({
+    uniforms: waterUniforms,
+    vertexShader: waterVertexShader,
+    fragmentShader: waterFragmentShader,
+    transparent: true,
+    side: THREE.DoubleSide,
+    depthWrite: true,
+  });
+
+  waterMesh = new THREE.Mesh(geo, waterMat);
+  waterMesh.frustumCulled = false;
+  scene.add(waterMesh);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   CREATE KAYAK (procedural geometry)
+   ═══════════════════════════════════════════════════════════════════ */
+function createKayak() {
+  kayakGroup = new THREE.Group();
+
+  // Hull - elongated shape with pointed bow/stern
+  const hullShape = new THREE.Shape();
+  const hullLen = 3.6, hullW = 0.35;
+  // Top-down profile
+  hullShape.moveTo(0, -hullLen / 2);
+  hullShape.bezierCurveTo(hullW * 1.2, -hullLen * 0.3, hullW * 1.2, hullLen * 0.3, 0, hullLen / 2);
+  hullShape.bezierCurveTo(-hullW * 1.2, hullLen * 0.3, -hullW * 1.2, -hullLen * 0.3, 0, -hullLen / 2);
+
+  // Build hull from lathe-style approach
+  const hullGeo = new THREE.BufferGeometry();
+  const hullVerts = [];
+  const hullNorms = [];
+  const hullUvs = [];
+  const segments = 24;
+  const lengthSegs = 32;
+
+  for (let j = 0; j <= lengthSegs; j++) {
+    const t = j / lengthSegs;
+    const z = (t - 0.5) * hullLen;
+    // Width profile: elliptical, narrowing at ends
+    const widthT = Math.sin(t * Math.PI);
+    const w = hullW * widthT;
+    // Depth profile
+    const depth = 0.22 * widthT;
+
+    for (let i = 0; i <= segments; i++) {
+      const a = (i / segments) * Math.PI; // half circle (bottom)
+      const x = Math.cos(a) * w;
+      const y = -Math.sin(a) * depth;
+      hullVerts.push(x, y, z);
+      const nx = Math.cos(a), ny = -Math.sin(a);
+      const len = Math.sqrt(nx*nx + ny*ny);
+      hullNorms.push(nx/len, ny/len, 0);
+      hullUvs.push(i / segments, t);
+    }
+  }
+
+  const hullIndices = [];
+  for (let j = 0; j < lengthSegs; j++) {
+    for (let i = 0; i < segments; i++) {
+      const a = j * (segments + 1) + i;
+      const b = a + segments + 1;
+      hullIndices.push(a, b, a + 1);
+      hullIndices.push(a + 1, b, b + 1);
+    }
+  }
+
+  hullGeo.setAttribute('position', new THREE.Float32BufferAttribute(hullVerts, 3));
+  hullGeo.setAttribute('normal', new THREE.Float32BufferAttribute(hullNorms, 3));
+  hullGeo.setAttribute('uv', new THREE.Float32BufferAttribute(hullUvs, 2));
+  hullGeo.setIndex(hullIndices);
+  hullGeo.computeVertexNormals();
+
+  const hullMat = new THREE.MeshStandardMaterial({
+    color: 0xcc3333,
+    roughness: 0.4,
+    metalness: 0.1,
+  });
+  const hull = new THREE.Mesh(hullGeo, hullMat);
+  hull.position.y = 0.05;
+  kayakGroup.add(hull);
+
+  // Deck (top surface) - flat elliptical
+  const deckGeo = new THREE.BufferGeometry();
+  const deckV = [], deckN = [], deckUV = [], deckI = [];
+  // Center vertex
+  deckV.push(0, 0.06, 0); deckN.push(0, 1, 0); deckUV.push(0.5, 0.5);
+  const deckSegs = 32;
+  for (let i = 0; i <= deckSegs; i++) {
+    const a = (i / deckSegs) * Math.PI * 2;
+    const dx = Math.cos(a);
+    const dz = Math.sin(a);
+    const wt = Math.abs(Math.sin(a));
+    const lt = Math.abs(Math.cos(a));
+    const rw = hullW * 0.95;
+    const rl = hullLen * 0.48;
+    const x = dx * rw * Math.sqrt(1 - 0.1 * lt * lt);
+    const z = dz * rl * Math.sqrt(1 - 0.3 * wt * wt);
+    deckV.push(x, 0.06, z);
+    deckN.push(0, 1, 0);
+    deckUV.push(0.5 + dx * 0.5, 0.5 + dz * 0.5);
+    if (i > 0) deckI.push(0, i, i + 1);
+  }
+  deckGeo.setAttribute('position', new THREE.Float32BufferAttribute(deckV, 3));
+  deckGeo.setAttribute('normal', new THREE.Float32BufferAttribute(deckN, 3));
+  deckGeo.setAttribute('uv', new THREE.Float32BufferAttribute(deckUV, 2));
+  deckGeo.setIndex(deckI);
+
+  const deckMat = new THREE.MeshStandardMaterial({
+    color: 0xdd4444,
+    roughness: 0.5,
+    metalness: 0.05,
+  });
+  const deck = new THREE.Mesh(deckGeo, deckMat);
+  deck.position.y = 0.0;
+  kayakGroup.add(deck);
+
+  // Cockpit rim (torus)
+  const rimGeo = new THREE.TorusGeometry(0.22, 0.03, 8, 24);
+  const rimMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.6 });
+  const rim = new THREE.Mesh(rimGeo, rimMat);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.set(0, 0.08, -0.1);
+  kayakGroup.add(rim);
+
+  // Seat
+  const seatGeo = new THREE.BoxGeometry(0.3, 0.04, 0.35);
+  const seatMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
+  const seat = new THREE.Mesh(seatGeo, seatMat);
+  seat.position.set(0, 0.0, -0.1);
+  kayakGroup.add(seat);
+
+  // Bow/stern decorative lines
+  const lineMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.3 });
+  for (const zOff of [-0.8, 0.8]) {
+    const lineGeo = new THREE.BoxGeometry(0.6, 0.01, 0.02);
+    const line = new THREE.Mesh(lineGeo, lineMat);
+    line.position.set(0, 0.07, zOff);
+    kayakGroup.add(line);
+  }
+
+  kayakGroup.position.set(0, 0, 0);
+  scene.add(kayakGroup);
+
+  // ── Paddle ─────────────────────────────────────────────────────
+  paddleGroup = new THREE.Group();
+  paddlePivot = new THREE.Group();
+
+  // Shaft
+  const shaftGeo = new THREE.CylinderGeometry(0.015, 0.015, 2.0, 8);
+  const shaftMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 });
+  const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+  shaft.rotation.z = Math.PI / 2;
+  paddlePivot.add(shaft);
+
+  // Blades
+  const bladeMat = new THREE.MeshStandardMaterial({ color: 0x1155aa, roughness: 0.4, metalness: 0.2 });
+  for (const side of [-1, 1]) {
+    const bladeShape = new THREE.Shape();
+    bladeShape.moveTo(0, -0.15);
+    bladeShape.bezierCurveTo(0.07, -0.12, 0.09, 0.12, 0, 0.18);
+    bladeShape.bezierCurveTo(-0.09, 0.12, -0.07, -0.12, 0, -0.15);
+    const bladeGeo = new THREE.ShapeGeometry(bladeShape);
+    const blade = new THREE.Mesh(bladeGeo, bladeMat);
+    blade.position.set(side * 1.05, 0, 0);
+    blade.rotation.y = side > 0 ? 0 : Math.PI;
+    // Feather angle for alternating blades
+    if (side > 0) blade.rotation.z = THREE.MathUtils.degToRad(45);
+    paddlePivot.add(blade);
+  }
+
+  paddlePivot.position.set(0, 0.35, 0.05);
+  paddleGroup.add(paddlePivot);
+  kayakGroup.add(paddleGroup);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   CREATE BUOYS
+   ═══════════════════════════════════════════════════════════════════ */
+function createBuoys() {
+  const buoyGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.8, 12);
+  const buoyColors = [0xff4444, 0x44ff44, 0xffaa00, 0xff4444, 0x44ff44, 0xffaa00];
+  const positions = [
+    [20, 0, 15], [45, 0, -10], [70, 0, 20],
+    [-15, 0, 30], [35, 0, 45], [80, 0, -25],
+  ];
+
+  positions.forEach((p, i) => {
+    const mat = new THREE.MeshStandardMaterial({ color: buoyColors[i % buoyColors.length], roughness: 0.5 });
+    const buoy = new THREE.Mesh(buoyGeo, mat);
+    buoy.position.set(p[0], 0, p[2]);
+    scene.add(buoy);
+    buoys.push(buoy);
+
+    // Top cone
+    const coneGeo = new THREE.ConeGeometry(0.15, 0.4, 8);
+    const cone = new THREE.Mesh(coneGeo, mat);
+    cone.position.y = 0.6;
+    buoy.add(cone);
+
+    // Stripe
+    const stripeGeo = new THREE.CylinderGeometry(0.32, 0.38, 0.15, 12);
+    const stripeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+    const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+    stripe.position.y = 0.1;
+    buoy.add(stripe);
+  });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   PARTICLE EFFECTS
+   ═══════════════════════════════════════════════════════════════════ */
+function createParticles() {
+  // Splash particles (pool of 8)
+  const splashGeo = new THREE.BufferGeometry();
+  const splashCount = 20;
+  for (let i = 0; i < 8; i++) {
+    const positions = new Float32Array(splashCount * 3);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({
+      color: 0xddeeff,
+      size: 0.08,
+      transparent: true,
+      opacity: 0.7,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const points = new THREE.Points(geo, mat);
+    points.visible = false;
+    points.userData = {
+      velocities: [],
+      life: 0,
+      maxLife: 0.6,
+      active: false,
+      particleCount: splashCount,
+    };
+    scene.add(points);
+    splashParticles.push(points);
+  }
+
+  // Wake trail particles
+  const wakeCount = 100;
+  const wakePositions = new Float32Array(wakeCount * 3);
+  const wakeGeo = new THREE.BufferGeometry();
+  wakeGeo.setAttribute('position', new THREE.BufferAttribute(wakePositions, 3));
+  const wakeMat = new THREE.PointsMaterial({
+    color: 0xaaddff,
+    size: 0.12,
+    transparent: true,
+    opacity: 0.35,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  wakeParticles = new THREE.Points(wakeGeo, wakeMat);
+  wakeParticles.userData = {
+    positions: [],
+    lifetimes: [],
+    maxLife: 3.0,
+    spawnTimer: 0,
+  };
+  scene.add(wakeParticles);
+}
+
+let splashIndex = 0;
+function spawnSplash(worldPos, speed) {
+  const splash = splashParticles[splashIndex % splashParticles.length];
+  splashIndex++;
+  splash.visible = true;
+  splash.position.copy(worldPos);
+  splash.userData.life = 0;
+  splash.userData.active = true;
+
+  const t = Math.min(Math.max((speed - 0.5) / 7.5, 0), 1);
+  const speedMult = 1 + t * 3;
+  const sizeMult = 0.3 + t * 1.2;
+  splash.material.size = 0.08 * sizeMult;
+
+  splash.userData.velocities = [];
+  const positions = splash.geometry.attributes.position.array;
+  for (let i = 0; i < splash.userData.particleCount; i++) {
+    positions[i * 3] = 0;
+    positions[i * 3 + 1] = 0;
+    positions[i * 3 + 2] = 0;
+    splash.userData.velocities.push(new THREE.Vector3(
+      (Math.random() - 0.5) * 2 * speedMult,
+      Math.random() * 3 * speedMult,
+      (Math.random() - 0.5) * 2 * speedMult
+    ));
+  }
+  splash.geometry.attributes.position.needsUpdate = true;
+}
+
+function updateParticles(dt) {
+  // Update splash particles
+  splashParticles.forEach(splash => {
+    if (!splash.userData.active) return;
+    splash.userData.life += dt;
+    if (splash.userData.life >= splash.userData.maxLife) {
+      splash.userData.active = false;
+      splash.visible = false;
+      return;
+    }
+    const lifeRatio = splash.userData.life / splash.userData.maxLife;
+    splash.material.opacity = 0.7 * (1 - lifeRatio);
+    const positions = splash.geometry.attributes.position.array;
+    for (let i = 0; i < splash.userData.particleCount; i++) {
+      const vel = splash.userData.velocities[i];
+      vel.y -= GRAVITY * dt;
+      positions[i * 3] += vel.x * dt;
+      positions[i * 3 + 1] += vel.y * dt;
+      positions[i * 3 + 2] += vel.z * dt;
+    }
+    splash.geometry.attributes.position.needsUpdate = true;
+  });
+
+  // Update wake trail
+  if (gameState === GameState.Playing && kayakPhysics.forwardSpeed > 0.3) {
+    wakeParticles.userData.spawnTimer += dt;
+    if (wakeParticles.userData.spawnTimer > 0.05) {
+      wakeParticles.userData.spawnTimer = 0;
+      const kp = kayakGroup.position.clone();
+      kp.y = Waves.getHeight(kp.x, kp.z, elapsedTime) + 0.05;
+      const back = new THREE.Vector3(0, 0, -0.8).applyQuaternion(kayakGroup.quaternion);
+      kp.add(back);
+      wakeParticles.userData.positions.push(kp);
+      wakeParticles.userData.lifetimes.push(0);
+    }
+  }
+
+  // Age and remove wake particles
+  const wp = wakeParticles.userData;
+  for (let i = wp.lifetimes.length - 1; i >= 0; i--) {
+    wp.lifetimes[i] += dt;
+    if (wp.lifetimes[i] > wp.maxLife) {
+      wp.positions.splice(i, 1);
+      wp.lifetimes.splice(i, 1);
+    }
+  }
+
+  // Update wake geometry
+  const wakePos = wakeParticles.geometry.attributes.position.array;
+  const count = Math.min(wp.positions.length, 100);
+  for (let i = 0; i < count; i++) {
+    wakePos[i * 3] = wp.positions[i].x;
+    wakePos[i * 3 + 1] = wp.positions[i].y;
+    wakePos[i * 3 + 2] = wp.positions[i].z;
+  }
+  for (let i = count; i < 100; i++) {
+    wakePos[i * 3] = 0; wakePos[i * 3 + 1] = -100; wakePos[i * 3 + 2] = 0;
+  }
+  wakeParticles.geometry.attributes.position.needsUpdate = true;
+  wakeParticles.geometry.setDrawRange(0, count);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   KAYAK PHYSICS (matching KayakPhysicsController.cs + BuoyancySystem.cs)
+   ═══════════════════════════════════════════════════════════════════ */
+const kayakPhysics = {
+  velocity: new THREE.Vector3(),
+  angularVelocity: new THREE.Vector3(), // simplified as yaw rate
+  leftStrokePower: 0,
+  rightStrokePower: 0,
+  forwardSpeed: 0,
+  mass: 80, // kg (kayak + paddler)
+  submersionFraction: 0,
+
+  // Prev blade submersion state for splash edge detection
+  _prevLeftBladeSubmerged: false,
+  _prevRightBladeSubmerged: false,
+
+  reset() {
+    this.velocity.set(0, 0, 0);
+    this.angularVelocity.set(0, 0, 0);
+    this.leftStrokePower = 0;
+    this.rightStrokePower = 0;
+    this.forwardSpeed = 0;
+    this.submersionFraction = 0;
+    this._prevLeftBladeSubmerged = false;
+    this._prevRightBladeSubmerged = false;
+    kayakGroup.position.set(0, 0.5, 0);
+    kayakGroup.rotation.set(0, 0, 0);
+    kayakGroup.quaternion.identity();
+  },
+
+  update(dt) {
+    if (gameState !== GameState.Playing) return;
+    const t = elapsedTime;
+
+    // ── Stroke power ramp/decay ──────────────────────────────────
+    if (Input.leftPaddle > 0.01) {
+      this.leftStrokePower = Math.min(this.leftStrokePower + dt / STROKE_RAMP_TIME, 1);
+    } else {
+      this.leftStrokePower = Math.max(this.leftStrokePower - dt / STROKE_DECAY_TIME, 0);
+    }
+    if (Input.rightPaddle > 0.01) {
+      this.rightStrokePower = Math.min(this.rightStrokePower + dt / STROKE_RAMP_TIME, 1);
+    } else {
+      this.rightStrokePower = Math.max(this.rightStrokePower - dt / STROKE_DECAY_TIME, 0);
+    }
+
+    // ── Buoyancy (5-point sampling) ──────────────────────────────
+    let submergedCount = 0;
+    let totalBuoyantForce = new THREE.Vector3();
+    let buoyancyTorque = new THREE.Vector3();
+    const kayakPos = kayakGroup.position;
+    const kayakQuat = kayakGroup.quaternion;
+
+    for (const localPt of BUOYANCY_POINTS) {
+      const worldPt = localPt.clone().applyQuaternion(kayakQuat).add(kayakPos);
+      const surfaceH = Waves.getHeight(worldPt.x, worldPt.z, t);
+      const depth = Math.max(0, surfaceH - worldPt.y);
+
+      if (depth > 0) {
+        submergedCount++;
+        const clampedDepth = Math.min(depth, 1.0);
+        const forceMag = WATER_DENSITY * GRAVITY * DISPLACED_VOLUME_PER_POINT * clampedDepth;
+        const force = new THREE.Vector3(0, forceMag, 0);
+        totalBuoyantForce.add(force);
+
+        // Torque from offset application point
+        const offset = worldPt.clone().sub(kayakPos);
+        const torque = new THREE.Vector3().crossVectors(offset, force);
+        buoyancyTorque.add(torque);
+      }
+    }
+    this.submersionFraction = submergedCount / BUOYANCY_POINTS.length;
+
+    // ── Gravity ──────────────────────────────────────────────────
+    const gravityForce = new THREE.Vector3(0, -GRAVITY * this.mass, 0);
+
+    // ── Net force accumulation ───────────────────────────────────
+    let netForce = new THREE.Vector3();
+    netForce.add(gravityForce);
+    netForce.add(totalBuoyantForce);
+
+    // ── Propulsion (only when sufficiently submerged) ────────────
+    if (this.submersionFraction >= 0.1) {
+      const combinedPower = this.leftStrokePower + this.rightStrokePower;
+      const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(kayakQuat);
+      const propulsion = forward.multiplyScalar(PADDLE_FORCE * combinedPower);
+      netForce.add(propulsion);
+
+      // ── Steering torque ────────────────────────────────────────
+      let yawAmount = 0;
+      if (simulationMode === 'simulation') {
+        const netYaw = this.rightStrokePower - this.leftStrokePower;
+        yawAmount = YAW_TORQUE * netYaw;
+      } else {
+        yawAmount = ARCADE_STEER_TORQUE * Input.steerAxis;
+        // Also add differential paddle steering in arcade
+        const netYaw = this.rightStrokePower - this.leftStrokePower;
+        yawAmount += YAW_TORQUE * netYaw * 0.5;
+      }
+      this.angularVelocity.y += (yawAmount / this.mass) * dt;
+
+      // ── Lateral damping (prevent sliding) ──────────────────────
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(kayakQuat);
+      const lateralSpeed = this.velocity.dot(right);
+      const dampForce = right.clone().multiplyScalar(-lateralSpeed * LATERAL_DAMPING);
+      netForce.add(dampForce);
+
+      // ── Water drag ─────────────────────────────────────────────
+      const dragForce = this.velocity.clone().multiplyScalar(-WATER_LINEAR_DRAG * this.submersionFraction);
+      netForce.add(dragForce);
+
+      // Angular drag
+      this.angularVelocity.multiplyScalar(1 - WATER_ANGULAR_DRAG * dt);
+
+      // ── Water current ──────────────────────────────────────────
+      const currentForce = WATER_CURRENT.clone().multiplyScalar(this.submersionFraction * 10);
+      netForce.add(currentForce);
+    }
+
+    // ── Righting torque (anti-capsize) ───────────────────────────
+    const up = new THREE.Vector3(0, 1, 0);
+    const kayakUp = new THREE.Vector3(0, 1, 0).applyQuaternion(kayakQuat);
+    const rollAngle = THREE.MathUtils.radToDeg(Math.acos(Math.min(1, kayakUp.dot(up))));
+    if (rollAngle < CAPSIZE_ANGLE) {
+      // Calculate roll error
+      const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(kayakQuat);
+      const rightDir = new THREE.Vector3().crossVectors(fwd, up).normalize();
+      const signedRoll = Math.atan2(kayakUp.dot(rightDir), kayakUp.dot(up));
+
+      let targetRoll = 0;
+      if (simulationMode === 'simulation') {
+        targetRoll = Input.leanAxis * THREE.MathUtils.degToRad(15);
+      }
+      const rollError = targetRoll - signedRoll;
+      const correctionMag = rollError * RIGHTING_TORQUE;
+      const correctionAxis = fwd.normalize();
+      this.angularVelocity.x += correctionAxis.x * correctionMag * dt / this.mass;
+      this.angularVelocity.z += correctionAxis.z * correctionMag * dt / this.mass;
+    }
+
+    // ── Integrate forces ─────────────────────────────────────────
+    const acceleration = netForce.clone().divideScalar(this.mass);
+    this.velocity.add(acceleration.multiplyScalar(dt));
+
+    // ── Speed clamping ───────────────────────────────────────────
+    const horizVel = new THREE.Vector2(this.velocity.x, this.velocity.z);
+    if (horizVel.length() > MAX_SPEED) {
+      horizVel.normalize().multiplyScalar(MAX_SPEED);
+      this.velocity.x = horizVel.x;
+      this.velocity.z = horizVel.y;
+    }
+
+    // ── Integrate position ───────────────────────────────────────
+    kayakPos.add(this.velocity.clone().multiplyScalar(dt));
+
+    // ── Integrate rotation ───────────────────────────────────────
+    const yawDelta = this.angularVelocity.y * dt;
+    kayakGroup.rotateOnWorldAxis(up, yawDelta);
+
+    // Apply pitch/roll from buoyancy torque (gentle)
+    if (submergedCount > 0) {
+      const surfN = Waves.getNormal(kayakPos.x, kayakPos.z, t);
+      const targetQuat = new THREE.Quaternion();
+      const fwdFlat = new THREE.Vector3(0, 0, 1).applyQuaternion(kayakQuat);
+      fwdFlat.y = 0; fwdFlat.normalize();
+      const m = new THREE.Matrix4().lookAt(new THREE.Vector3(), fwdFlat, surfN);
+      targetQuat.setFromRotationMatrix(m);
+      kayakGroup.quaternion.slerp(targetQuat, Math.min(dt * 3, 1));
+    }
+
+    // ── Surface snapping (keep kayak on water) ───────────────────
+    const surfaceH = Waves.getHeight(kayakPos.x, kayakPos.z, t);
+    if (kayakPos.y < surfaceH - 0.3) {
+      kayakPos.y = surfaceH - 0.3;
+      if (this.velocity.y < 0) this.velocity.y *= -0.2; // bounce
+    }
+
+    // ── Forward speed calculation ────────────────────────────────
+    const fwdDir = new THREE.Vector3(0, 0, 1).applyQuaternion(kayakQuat);
+    this.forwardSpeed = Math.max(0, this.velocity.dot(fwdDir));
+
+    // ── Paddle blade splash detection ────────────────────────────
+    const leftBladeWorld = new THREE.Vector3(-1.05, 0.35, 0.05).applyQuaternion(kayakQuat).add(kayakPos);
+    const rightBladeWorld = new THREE.Vector3(1.05, 0.35, 0.05).applyQuaternion(kayakQuat).add(kayakPos);
+    const leftBladeH = Waves.getHeight(leftBladeWorld.x, leftBladeWorld.z, t);
+    const rightBladeH = Waves.getHeight(rightBladeWorld.x, rightBladeWorld.z, t);
+    const leftSubmerged = leftBladeWorld.y < leftBladeH;
+    const rightSubmerged = rightBladeWorld.y < rightBladeH;
+
+    if (leftSubmerged && !this._prevLeftBladeSubmerged && this.leftStrokePower > 0.2) {
+      spawnSplash(leftBladeWorld, this.forwardSpeed + this.leftStrokePower * 2);
+    }
+    if (rightSubmerged && !this._prevRightBladeSubmerged && this.rightStrokePower > 0.2) {
+      spawnSplash(rightBladeWorld, this.forwardSpeed + this.rightStrokePower * 2);
+    }
+    this._prevLeftBladeSubmerged = leftSubmerged;
+    this._prevRightBladeSubmerged = rightSubmerged;
+  }
+};
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   PADDLE ANIMATION (matching PaddleController.cs)
+   ═══════════════════════════════════════════════════════════════════ */
+const paddleAnim = {
+  leftTimer: 0,
+  rightTimer: 0,
+  strokeDuration: 0.6,
+  dipDepth: 0.35,
+  arcDegrees: 60,
+  featherAngle: 45,
+  _restQuat: new THREE.Quaternion(),
+
+  update(dt) {
+    if (gameState !== GameState.Playing) return;
+
+    // Stroke timers
+    if (Input.leftPaddle > 0.01) {
+      this.leftTimer = Math.min(this.leftTimer + dt, this.strokeDuration);
+    } else {
+      this.leftTimer = Math.max(this.leftTimer - dt * 2, 0);
+    }
+    if (Input.rightPaddle > 0.01) {
+      this.rightTimer = Math.min(this.rightTimer + dt, this.strokeDuration);
+    } else {
+      this.rightTimer = Math.max(this.rightTimer - dt * 2, 0);
+    }
+
+    const leftT = this.leftTimer / this.strokeDuration;
+    const rightT = this.rightTimer / this.strokeDuration;
+    const leftActive = leftT > rightT;
+    const t = leftActive ? leftT : rightT;
+
+    // Ease in-out curve
+    const curveVal = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+    const sideSign = leftActive ? -1 : 1;
+    const dipAngle = curveVal * this.dipDepth * 100 * sideSign;
+    const sweepAngle = curveVal * this.arcDegrees * sideSign;
+
+    // Apply to paddle pivot
+    const dipQuat = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(dipAngle)
+    );
+    const sweepQuat = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(sweepAngle)
+    );
+
+    paddlePivot.quaternion.copy(this._restQuat).multiply(dipQuat).multiply(sweepQuat);
+  }
+};
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   CAMERA CONTROLLER (matching CameraController.cs)
+   ═══════════════════════════════════════════════════════════════════ */
+const CameraMode = { ThirdPerson: 0, FirstPerson: 1, Orbital: 2 };
+const cameraCtrl = {
+  mode: CameraMode.ThirdPerson,
+  orbitalAngle: 0,
+  _posVel: new THREE.Vector3(),
+  _currentFov: 65,
+
+  cycleMode() {
+    this.mode = (this.mode + 1) % 3;
+    const names = ['Third Person', 'First Person', 'Orbital'];
+    $camMode.textContent = names[this.mode];
+  },
+
+  update(dt) {
+    let targetPos, targetLookAt, targetFov;
+    const kayakPos = kayakGroup.position;
+    const kayakQuat = kayakGroup.quaternion;
+
+    switch (this.mode) {
+      case CameraMode.ThirdPerson: {
+        const offset = CAM.thirdPerson.offset.clone().applyQuaternion(kayakQuat);
+        targetPos = kayakPos.clone().add(offset);
+        targetLookAt = kayakPos.clone().add(new THREE.Vector3(0, 0.5, 0));
+        targetFov = CAM.thirdPerson.fov;
+        break;
+      }
+      case CameraMode.FirstPerson: {
+        const offset = CAM.firstPerson.offset.clone().applyQuaternion(kayakQuat);
+        targetPos = kayakPos.clone().add(offset);
+        const fwd = new THREE.Vector3(0, 0, 5).applyQuaternion(kayakQuat);
+        targetLookAt = targetPos.clone().add(fwd);
+        targetFov = CAM.firstPerson.fov;
+        break;
+      }
+      case CameraMode.Orbital: {
+        this.orbitalAngle += CAM.orbital.speed * dt;
+        const rad = THREE.MathUtils.degToRad(this.orbitalAngle);
+        targetPos = new THREE.Vector3(
+          kayakPos.x + Math.cos(rad) * CAM.orbital.radius,
+          kayakPos.y + CAM.orbital.height,
+          kayakPos.z + Math.sin(rad) * CAM.orbital.radius
+        );
+        targetLookAt = kayakPos.clone();
+        targetFov = CAM.orbital.fov;
+        break;
+      }
+    }
+
+    // Smooth position
+    const smoothFactor = 1 - Math.exp(-dt / CAM.posSmooth);
+    camera.position.lerp(targetPos, smoothFactor);
+
+    // Smooth look-at via quaternion slerp
+    const lookAtMatrix = new THREE.Matrix4().lookAt(camera.position, targetLookAt, new THREE.Vector3(0, 1, 0));
+    const targetQuat = new THREE.Quaternion().setFromRotationMatrix(lookAtMatrix);
+    camera.quaternion.slerp(targetQuat, 1 - Math.exp(-dt / CAM.rotSmooth));
+
+    // Smooth FOV
+    this._currentFov += (targetFov - this._currentFov) * Math.min(dt / CAM.fovSmooth, 1);
+    camera.fov = this._currentFov;
+    camera.updateProjectionMatrix();
+  }
+};
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   HUD UPDATE (matching HUDManager.cs)
+   ═══════════════════════════════════════════════════════════════════ */
+function updateHUD() {
+  if (gameState !== GameState.Playing) return;
+
+  // Speed (km/h)
+  const kmh = kayakPhysics.forwardSpeed * 3.6;
+  $speed.innerHTML = `${kmh.toFixed(1)}<span class="unit">km/h</span>`;
+
+  // Compass heading
+  let heading = THREE.MathUtils.radToDeg(Math.atan2(
+    new THREE.Vector3(0, 0, 1).applyQuaternion(kayakGroup.quaternion).x,
+    new THREE.Vector3(0, 0, 1).applyQuaternion(kayakGroup.quaternion).z
+  ));
+  if (heading < 0) heading += 360;
+  $compass.textContent = `${Math.round(heading).toString().padStart(3, '0')}°`;
+
+  // Stroke bars
+  $barLeft.style.height = `${kayakPhysics.leftStrokePower * 100}%`;
+  $barRight.style.height = `${kayakPhysics.rightStrokePower * 100}%`;
+
+  // Distance traveled
+  const dx = kayakGroup.position.x - lastKayakPos.x;
+  const dz = kayakGroup.position.z - lastKayakPos.z;
+  distanceTraveled += Math.sqrt(dx * dx + dz * dz);
+  lastKayakPos.copy(kayakGroup.position);
+  if (distanceTraveled < 1000) {
+    $distance.textContent = `${Math.round(distanceTraveled)} m traveled`;
+  } else {
+    $distance.textContent = `${(distanceTraveled / 1000).toFixed(2)} km traveled`;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   ENVIRONMENT UPDATES
+   ═══════════════════════════════════════════════════════════════════ */
+function updateEnvironment(dt) {
+  // Move water plane to follow camera (infinite ocean illusion)
+  waterMesh.position.x = Math.round(camera.position.x);
+  waterMesh.position.z = Math.round(camera.position.z);
+
+  // Move sky dome with camera
+  skyDome.position.x = camera.position.x;
+  skyDome.position.z = camera.position.z;
+
+  // Update water shader uniforms
+  waterMesh.material.uniforms.uTime.value = elapsedTime;
+  waterMesh.material.uniforms.uCameraPos.value.copy(camera.position);
+
+  // Sky time
+  skyDome.material.uniforms.uTime.value = elapsedTime;
+
+  // Animate buoys
+  buoys.forEach((buoy, i) => {
+    const bx = buoy.position.x, bz = buoy.position.z;
+    buoy.position.y = Waves.getHeight(bx, bz, elapsedTime) + 0.3;
+    const normal = Waves.getNormal(bx, bz, elapsedTime);
+    const tiltX = Math.atan2(normal.z, normal.y) * 0.3;
+    const tiltZ = Math.atan2(normal.x, normal.y) * 0.3;
+    buoy.rotation.x = tiltX;
+    buoy.rotation.z = -tiltZ;
+  });
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   MENU SYSTEM
+   ═══════════════════════════════════════════════════════════════════ */
+function showOverlay(el) { el.classList.remove('hidden'); el.classList.add('visible'); }
+function hideOverlay(el) { el.classList.remove('visible'); el.classList.add('hidden'); }
+
+function setGameState(newState) {
+  gameState = newState;
+  switch (newState) {
+    case GameState.MainMenu:
+      showOverlay($mainMenu); hideOverlay($pauseMenu); hideOverlay($settingsMenu);
+      $hud.classList.add('hidden');
+      break;
+    case GameState.Playing:
+      hideOverlay($mainMenu); hideOverlay($pauseMenu); hideOverlay($settingsMenu);
+      $hud.classList.remove('hidden');
+      break;
+    case GameState.Paused:
+      showOverlay($pauseMenu); hideOverlay($settingsMenu);
+      break;
+  }
+}
+
+function startGame() {
+  kayakPhysics.reset();
+  distanceTraveled = 0;
+  lastKayakPos.copy(kayakGroup.position);
+  cameraCtrl.mode = CameraMode.ThirdPerson;
+  cameraCtrl.orbitalAngle = 0;
+  camera.position.set(0, 2.5, -5);
+  setGameState(GameState.Playing);
+}
+
+// Button handlers
+document.getElementById('btn-start').addEventListener('click', startGame);
+
+document.getElementById('btn-arcade').addEventListener('click', () => {
+  simulationMode = 'arcade';
+  document.getElementById('btn-arcade').classList.add('active');
+  document.getElementById('btn-simulation').classList.remove('active');
+});
+document.getElementById('btn-simulation').addEventListener('click', () => {
+  simulationMode = 'simulation';
+  document.getElementById('btn-simulation').classList.add('active');
+  document.getElementById('btn-arcade').classList.remove('active');
+});
+
+document.getElementById('btn-instructions-show').addEventListener('click', () => {
+  const block = document.getElementById('instructions-block');
+  block.style.display = block.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('btn-settings-main').addEventListener('click', () => {
+  settingsReturnTo = 'main';
+  hideOverlay($mainMenu); showOverlay($settingsMenu);
+});
+document.getElementById('btn-settings-pause').addEventListener('click', () => {
+  settingsReturnTo = 'pause';
+  hideOverlay($pauseMenu); showOverlay($settingsMenu);
+});
+document.getElementById('btn-settings-back').addEventListener('click', () => {
+  hideOverlay($settingsMenu);
+  if (settingsReturnTo === 'main') showOverlay($mainMenu);
+  else showOverlay($pauseMenu);
+});
+
+document.getElementById('btn-resume').addEventListener('click', () => setGameState(GameState.Playing));
+document.getElementById('btn-mainmenu').addEventListener('click', () => setGameState(GameState.MainMenu));
+
+// Settings sliders
+['master', 'music', 'sfx'].forEach(name => {
+  const slider = document.getElementById(`sl-${name}`);
+  const valEl = document.getElementById(`val-${name}`);
+  slider.addEventListener('input', () => {
+    const v = parseFloat(slider.value);
+    valEl.textContent = `${Math.round(v * 100)}%`;
+    settings[`${name}Volume`] = v;
+  });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   KEYBOARD EVENT HANDLING FOR ONE-SHOT INPUTS
+   ═══════════════════════════════════════════════════════════════════ */
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Escape') {
+    e.preventDefault();
+    if (gameState === GameState.Playing) {
+      setGameState(GameState.Paused);
+    } else if (gameState === GameState.Paused) {
+      setGameState(GameState.Playing);
+    }
+  }
+  if (e.code === 'KeyC' && gameState === GameState.Playing) {
+    cameraCtrl.cycleMode();
+  }
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   MAIN GAME LOOP
+   ═══════════════════════════════════════════════════════════════════ */
+function gameLoop() {
+  requestAnimationFrame(gameLoop);
+
+  const rawDt = clock.getDelta();
+  const dt = Math.min(rawDt, 1 / 20); // Cap dt to prevent spiral of death
+  elapsedTime += dt;
+
+  // Input
+  Input.update();
+
+  // Physics (fixed-step-ish)
+  if (gameState === GameState.Playing) {
+    kayakPhysics.update(dt);
+    paddleAnim.update(dt);
+  }
+
+  // Camera
+  cameraCtrl.update(dt);
+
+  // Environment
+  updateEnvironment(dt);
+
+  // Particles
+  updateParticles(dt);
+
+  // HUD
+  updateHUD();
+
+  // Render
+  renderer.render(scene, camera);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   INITIALIZATION
+   ═══════════════════════════════════════════════════════════════════ */
+Input.init();
+initScene();
+setGameState(GameState.MainMenu);
+gameLoop();
+
+</script>
+</body>
+</html>
