@@ -3,6 +3,12 @@
 An **ultra-realistic kayak simulator** built in Unity (URP), featuring physically
 accurate water physics, immersive visuals, and both Arcade and Simulation control modes.
 
+## 🌐 Play Online
+
+**▶️ [Play now in your browser!](https://rosutcliffe-bot.github.io/Kayak-game/)**
+
+No install required — works on desktop and mobile.
+
 ---
 
 ## ✨ Features
@@ -123,3 +129,19 @@ See [`Documentation/SceneSetupGuide.md`](Documentation/SceneSetupGuide.md) for:
 - Rigidbody configuration values
 - Extension points (multiplayer, FFT ocean, new water bodies)
 
+---
+
+## 🌐 Web Version
+
+A standalone browser-playable version lives in [`docs/index.html`](docs/index.html).
+It is served automatically via **GitHub Pages** at:
+
+> **https://rosutcliffe-bot.github.io/Kayak-game/**
+
+The web build is a single self-contained HTML file using Three.js that recreates:
+- Gerstner wave ocean with custom GLSL shaders
+- Full kayak physics (buoyancy, paddle strokes, drag, righting torque)
+- Three camera modes (third-person, first-person, orbital)
+- HUD with speed, heading, and stroke indicators
+- Main menu, pause menu, and settings
+- Mobile touch controls
